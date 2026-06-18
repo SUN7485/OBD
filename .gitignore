@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+.mypy_cache/
+.pytest_cache/
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Node.js
+node_modules/
+.next/
+.next/trace
+.out/
+.npm/
+.vercel/
+*.log
+
+# Frontend specific
+frontend/.next/
+frontend/node_modules/
+frontend/.env.local
+frontend/.ruff_cache/
+
+# Backend specific
+backend/__pycache__/
+backend/.pytest_cache/
+backend/*.egg-info/
+backend/.env
+backend/.env.*
+!.env.example
+
+# Production env
+.env.prod
+.env.production
+.env.development
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo

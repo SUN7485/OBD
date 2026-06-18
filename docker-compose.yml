@@ -1,0 +1,159 @@
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    env_file:
+      - .env.docker
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleet_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fleet_network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    env_file:
+      - .env.docker
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - fleet_network
+
+  backend:
+    build: ./backend
+    command: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    env_file:
+      - .env.docker
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mqtt:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    networks:
+      - fleet_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery_worker:
+    build: ./backend
+    command: celery -A celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - .env.docker
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - fleet_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery_beat:
+    build: ./backend
+    command: celery -A celery_app beat --loglevel=info
+    env_file:
+      - .env.docker
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - fleet_network
+
+  flower:
+    build: ./backend
+    command: celery -A celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env.docker
+    depends_on:
+      - redis
+      - celery_worker
+    networks:
+      - fleet_network
+
+  mqtt:
+    image: emqx/emqx:5.5.0
+    ports:
+      - "1883:1883"    # MQTT
+      - "8083:8083"    # WebSocket
+      - "8084:8084"    # Dashboard
+      - "8883:8883"    # MQTT/TLS
+    volumes:
+      - mqtt_data:/opt/emqx/data/mqtt
+    networks:
+      - fleet_network
+    healthcheck:
+      test: ["CMD", "emqx", "eval", "1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000
+      NEXT_PUBLIC_MQTT_URL: ws://localhost:8083
+    depends_on:
+      - backend
+    networks:
+      - fleet_network
+
+  # Optional: Ollama for local LLM (uncomment to enable)
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   networks:
+  #     - fleet_network
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+
+  # Optional: LM Studio (alternative to Ollama)
+  # lmstudio:
+  #   image: lmstudioai/ lmstudio:latest
+  #   ports:
+  #     - "1234:1234"
+  #   networks:
+  #     - fleet_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  mqtt_data:
+  # ollama_data:
+
+networks:
+  fleet_network:
+    driver: bridge
