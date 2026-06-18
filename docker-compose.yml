@@ -39,8 +39,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-      mqtt:
-        condition: service_healthy
     ports:
       - "8000:8000"
     networks:
@@ -93,7 +91,6 @@ services:
 
   mqtt:
     image: emqx/emqx:5.5.0
-    hostname: mqtt
     environment:
       EMQX_NODE__NAME: emqx@mqtt
     ports:
@@ -105,11 +102,6 @@ services:
       - mqtt_data:/opt/emqx/data/mqtt
     networks:
       - fleet_network
-    healthcheck:
-      test: ["CMD", "emqx", "eval", "1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   frontend:
     build:
