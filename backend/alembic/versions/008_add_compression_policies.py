@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '008_add_compression_policies'
-down_revision = '001_initial_schema'
+down_revision = '007_add_device_api_keys'
 branch_labels = None
 depends_on = None
 
