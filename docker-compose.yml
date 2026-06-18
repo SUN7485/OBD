@@ -93,11 +93,14 @@ services:
 
   mqtt:
     image: emqx/emqx:5.5.0
+    hostname: mqtt
+    environment:
+      EMQX_NODE__NAME: emqx@mqtt
     ports:
-      - "1883:1883"    # MQTT
-      - "8083:8083"    # WebSocket
-      - "8084:8084"    # Dashboard
-      - "8883:8883"    # MQTT/TLS
+      - "1883:1883"
+      - "8083:8083"
+      - "8084:8084"
+      - "8883:8883"
     volumes:
       - mqtt_data:/opt/emqx/data/mqtt
     networks:
