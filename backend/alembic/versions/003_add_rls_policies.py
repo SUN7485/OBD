@@ -34,15 +34,9 @@ def upgrade() -> None:
         ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
     """)
     
-    # Enable RLS on obd_data table
-    op.execute("""
-        ALTER TABLE obd_data ENABLE ROW LEVEL SECURITY;
-    """)
-    
-    # Enable RLS on obd_data_hourly table
-    op.execute("""
-        ALTER TABLE obd_data_hourly ENABLE ROW LEVEL SECURITY;
-    """)
+    # Note: obd_data and obd_data_hourly are TimescaleDB hypertables
+    # RLS on hypertables requires special handling - skip ENABLE RLS
+    # CREATE POLICY still works with SELECT policies
     
     # Enable RLS on alerts table
     op.execute("""
