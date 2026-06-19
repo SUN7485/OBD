@@ -66,9 +66,10 @@ function AppInner() {
       const hasAuth = await checkAuth();
       if (hasAuth && user) {
         const token = await api.getToken();
-        if (token) {
+        const host = api.getHost();
+        if (token && host && !host.includes('undefined')) {
           AlertWebSocket.setToken(token);
-          AlertWebSocket.connect(api.getHost());
+          AlertWebSocket.connect(host);
         }
       }
       setLoading(false);
