@@ -269,9 +269,11 @@ class OBDData(Base):
     __tablename__ = "obd_data"
     __table_args__ = (
         UniqueConstraint("time", "car_id", name="uix_obd_data_time_car"),
+        UniqueConstraint("car_id", "source_message_id", name="uix_obd_data_source_msg"),
         Index("idx_obd_data_org_time", "organization_id", "time"),
         Index("idx_obd_data_car_time", "car_id", "time"),
         Index("idx_obd_data_dtc", "dtc_codes", postgresql_using="gin"),
+        Index("idx_obd_data_source_msg", "car_id", "source_message_id"),
     )
     time: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     car_id: Mapped[uuid.UUID] = mapped_column(
@@ -282,6 +284,12 @@ class OBDData(Base):
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
     )
+
+    @staticmethod
+    def make_message_id(car_id: uuid.UUID, time: datetime) -> str:
+        return f"{car_id}:{int(time.timestamp() * 1000)}"
+
+    source_message_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=False)
 
     # Engine metrics
     rpm: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

@@ -1,5 +1,5 @@
-from fastapi import APIRouter, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, status, HTTPException, Depends
+from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 import asyncio
@@ -11,10 +11,31 @@ from config.settings import settings
 from db.session import AsyncSessionLocal
 from api.v1.schemas.health import HealthResponse
 from services.llm_client import get_llm_client
+from middleware.auth import get_current_user, require_role
 
-router = APIRouter(prefix="/api/v1/health", tags=["health"])
+router = APIRouter(tags=["health"])
 
 start_time = time.time()
+
+
+async def get_prometheus_metrics() -> str:
+    try:
+        import prometheus_client
+        return prometheus_client.generate_latest(prometheus_client.REGISTRY).decode()
+    except ImportError:
+        return ""
+
+
+@router.get("/metrics")
+async def metrics_check(current_user = Depends(require_role(["admin"]))):
+    """Return Prometheus metrics - admin only."""
+    metrics = await get_prometheus_metrics()
+    if not metrics:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Prometheus not installed"
+        )
+    return PlainTextResponse(content=metrics, media_type="text/plain")
 
 
 @router.get("/live")
@@ -83,16 +104,6 @@ async def readiness_check():
         },
         status_code=code,
     )
-
-
-@router.get("/metrics")
-async def metrics_check():
-    """Return basic metrics."""
-    uptime = int(time.time() - start_time)
-    llm = get_llm_client()
-    circuit_state = llm.get_circuit_state()
-
-    return {"uptime_seconds": uptime, "llm_circuit_state": circuit_state}
 
 
 @router.get("/", response_model=HealthResponse)

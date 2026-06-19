@@ -103,16 +103,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Prometheus metrics
+# Rate limiting
+from slowapi.errors import RateLimitExceeded
+from middleware.rate_limiter import limiter, rate_limit_exceeded_handler
+app.state.limiter = limiter
+
+# Add slowapi middleware
+try:
+    from slowapi.middleware import SlowAPIMiddleware
+
+    app.add_middleware(SlowAPIMiddleware)
+except ImportError:
+    pass
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+# Prometheus metrics (exposed via protected endpoint in health_routes)
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
 
     instrumentator = Instrumentator(
         should_group_status_codes=False,
         should_ignore_untemplated=True,
-        excluded_handlers=["/health", "/health/live", "/health/ready", "/health/metrics"],
+        excluded_handlers=["/health", "/health/live", "/health/ready"],
     )
-    instrumentator.instrument(app).expose(app, endpoint="/metrics")
+    instrumentator.instrument(app)
 except ImportError:
     logger.warning(
         "prometheus-fastapi-instrumentator not installed, metrics endpoint disabled"
@@ -135,7 +150,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(auth_routes.router, prefix="/api/v1")
-app.include_router(health_routes.router, prefix="/api/v1")
+app.include_router(health_routes.router, prefix="/api/v1/health")
 app.include_router(websocket_routes.router, prefix="/api/v1")
 app.include_router(telemetry_routes.router, prefix="/api/v1")
 app.include_router(analytics_routes.router, prefix="/api/v1")

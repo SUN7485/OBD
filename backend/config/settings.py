@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, field_validator, AnyHttpUrl, EmailStr
+from pydantic import Field, field_validator, model_validator, AnyHttpUrl, EmailStr
 from typing import Optional, List
 import os
 import json
@@ -26,9 +26,9 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(default=False, env="DEBUG")
     DB_POOL_SIZE: int = Field(default=20, env="DB_POOL_SIZE")
     DB_MAX_OVERFLOW: int = Field(default=40, env="DB_MAX_OVERFLOW")
-    MQTT_URL: str = Field(default="mqtt://localhost:1883", env="MQTT_URL")
-    MQTT_USERNAME: Optional[str] = Field(None, env="MQTT_USERNAME")
-    MQTT_PASSWORD: Optional[str] = Field(None, env="MQTT_PASSWORD")
+    SLOWAPI_REDIS_URL: Optional[str] = Field(None, env="SLOWAPI_REDIS_URL")
+    RATE_LIMIT_PER_MINUTE: int = Field(default=120, env="RATE_LIMIT_PER_MINUTE")
+    RATE_LIMIT_PER_CAR_PER_MINUTE: int = Field(default=60, env="RATE_LIMIT_PER_CAR_PER_MINUTE")
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
@@ -36,21 +36,18 @@ class Settings(BaseSettings):
 
     @field_validator("CORS_ORIGINS", mode="before")
     def parse_cors_origins(cls, v):
-        """Parse CORS_ORIGINS from comma-separated string or JSON array."""
         if not v:
             return []
         if isinstance(v, list):
             return v
-        # Try to parse as JSON first
         try:
             return json.loads(v)
         except (json.JSONDecodeError, TypeError):
             pass
-        # Fall back to comma-separated
         return [origin.strip() for origin in v.split(",") if origin.strip()]
 
     @field_validator("ENVIRONMENT")
-    def validate_environment(cls, v, info):
+    def validate_environment(cls, v):
         allowed = ("dev", "staging", "prod", "testing")
         if v not in allowed:
             raise ValueError(f"ENVIRONMENT must be one of: {', '.join(allowed)}")
@@ -61,6 +58,15 @@ class Settings(BaseSettings):
         if not v or (isinstance(v, str) and not v.strip()):
             raise ValueError(f"{info.field_name} is required")
         return v
+
+    @model_validator(mode="after")
+    def check_prod_config(self):
+        if self.ENVIRONMENT == "prod":
+            if not self.JWT_SECRET or self.JWT_SECRET in ("changeme", "secret", "a1b2c3d4e5f6"):
+                raise ValueError("JWT_SECRET must be a strong random secret in production")
+            if not self.CORS_ORIGINS:
+                raise ValueError("CORS_ORIGINS must be set in production")
+        return self
 
 
 settings = Settings()

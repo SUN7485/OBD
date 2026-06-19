@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from db.session import get_db
 from middleware.auth import get_current_user
-from domain.models import User, UserRole, GeofenceType, MaintenanceType
+from domain.models import User, UserRole, GeofenceType, MaintenanceType, DeviceAPIKey
 from services.geofence import GeofenceService
 from services.driver import DriverScoreService, MaintenanceService
 from services.fuel_anomaly import FuelAnomalyService
@@ -215,6 +215,22 @@ async def schedule_maintenance(
         raise HTTPException(status_code=500, detail="Failed to schedule maintenance")
 
     return {"id": str(schedule.id), "status": schedule.status.value}
+
+
+@router.get("/maintenance", summary="Get all maintenance schedules")
+async def get_maintenance(
+    days: int = Query(30, ge=1, le=365),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get maintenance schedules for the organization."""
+    service = MaintenanceService(db)
+
+    schedules = await service.get_upcoming_maintenance(
+        organization_id=current_user.organization_id, days_ahead=days
+    )
+
+    return {"maintenance": schedules}
 
 
 @router.get("/maintenance/upcoming", summary="Get upcoming maintenance")
@@ -516,6 +532,55 @@ async def revoke_api_key(
     await db.flush()
 
     return {"message": "API key revoked successfully"}
+
+
+@router.post("/api-keys/{key_id}/rotate", summary="Rotate device API key")
+async def rotate_api_key_endpoint(
+    key_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rotate an API key. Returns new key. Admin only."""
+    if current_user.role not in [UserRole.admin, UserRole.fleet_manager]:
+        raise HTTPException(status_code=403, detail="Admin or fleet manager required")
+
+    from services import api_keys
+
+    result = await db.execute(
+        select(DeviceAPIKey).filter(
+            DeviceAPIKey.id == key_id,
+            DeviceAPIKey.organization_id == current_user.organization_id,
+        )
+    )
+    api_key = result.scalars().first()
+    if not api_key:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    new_key = await api_keys.rotate_api_key(db, key_id)
+    if not new_key:
+        raise HTTPException(status_code=404, detail="Failed to rotate key")
+
+    await db.commit()
+    return {"api_key": new_key, "message": "API key rotated successfully"}
+
+
+@router.get("/api-keys/{key_id}/usage", summary="Get API key usage stats")
+async def get_api_key_usage_endpoint(
+    key_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get usage statistics for an API key. Admin only."""
+    if current_user.role not in [UserRole.admin, UserRole.fleet_manager]:
+        raise HTTPException(status_code=403, detail="Admin or fleet manager required")
+
+    from services import api_keys
+
+    usage = await api_keys.get_api_key_usage(db, key_id)
+    if not usage:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    return usage
 
 
 # ==================== ADMIN USER MANAGEMENT ====================

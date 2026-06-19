@@ -14,6 +14,7 @@ from domain.models import User, DeviceAPIKey
 from api.v1.schemas.telemetry import (
     TelemetryIngestRequest,
     TelemetryIngestResponse,
+    TelemetryBatchIngestRequest,
     TelemetryHistoryRequest,
     TelemetryHistoryResponse,
     TelemetryLatestResponse,
@@ -45,7 +46,7 @@ async def get_optional_auth(
     response_model=TelemetryIngestResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Ingest telemetry data",
-    description="Ingest OBD telemetry data from a vehicle. Triggers background threshold checking and broadcasts to WebSocket subscribers.",
+    description="Ingest OBD telemetry data from a vehicle.",
 )
 async def ingest_telemetry(
     data: TelemetryIngestRequest,
@@ -117,6 +118,51 @@ async def ingest_telemetry(
         time=obd_data.time,
         car_id=obd_data.car_id,
     )
+
+
+@router.post(
+    "/ingest/batch",
+    summary="Batch ingest telemetry data",
+    description="Accepts up to 50 telemetry readings in one request and writes them in a single transaction.",
+)
+async def batch_ingest_telemetry(
+    payload: TelemetryBatchIngestRequest,
+    auth: tuple[Optional[Union[User, DeviceAPIKey]], bool] = Depends(get_optional_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    auth_user, is_user = auth
+    if is_user and auth_user:
+        organization_id = auth_user.organization_id
+    elif auth_user:
+        organization_id = auth_user.organization_id
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
+        )
+
+    if not payload.items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="items must not be empty"
+        )
+
+    service = TelemetryService(db)
+    try:
+        accepted, rejected = await service.ingest_telemetry_batch(payload.items, organization_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error batch ingesting telemetry: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to ingest batch telemetry data",
+        )
+
+    return {
+        "success": True,
+        "accepted": accepted,
+        "rejected": rejected,
+        "message": f"Batch telemetry ingest completed: {accepted} accepted, {rejected} rejected",
+    }
 
 
 @router.get(
@@ -227,7 +273,8 @@ async def list_cars_with_telemetry(
     """
     List all cars in the organization with their latest telemetry timestamps.
     """
-    from sqlalchemy import select, func, and_
+    from sqlalchemy import select, func
+
     from domain.models import Car, OBDData
 
     # Get cars with latest telemetry time
