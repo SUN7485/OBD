@@ -3,10 +3,10 @@ from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 from jose import JWTError, ExpiredSignatureError
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Callable, Optional
-from ..db.session import get_db
-from ..services.auth import decode_token
-from ..domain.models import User, DeviceAPIKey
-from ..services import api_keys
+from db.session import get_db
+from services.auth import decode_token
+from domain.models import User, DeviceAPIKey
+from services import api_keys
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)

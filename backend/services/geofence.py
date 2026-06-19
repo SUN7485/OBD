@@ -8,7 +8,7 @@ import math
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.domain.models import Geofence, GeofenceEvent, Car, AlertType, AlertSeverity
+from domain.models import Geofence, GeofenceEvent, Car, AlertType, AlertSeverity
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class GeofenceService:
         notify_on_exit: bool = True
     ) -> Geofence:
         """Create a new geofence."""
-        from backend.domain.models import GeofenceType
+        from domain.models import GeofenceType
         
         geofence = Geofence(
             organization_id=organization_id,
@@ -200,7 +200,7 @@ class GeofenceService:
         hours: int = 24
     ) -> List[Dict[str, Any]]:
         """Get vehicle location history from telemetry."""
-        from backend.domain.models import OBDData
+        from domain.models import OBDData
         from datetime import timedelta
         
         start_time = datetime.now(timezone.utc) - timedelta(hours=hours)

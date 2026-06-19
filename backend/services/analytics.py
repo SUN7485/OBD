@@ -8,7 +8,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 
-from backend.domain.models import Car, OBDData, OBDDataHourly, Alert
+from domain.models import Car, OBDData, OBDDataHourly, Alert
 
 logger = logging.getLogger(__name__)
 

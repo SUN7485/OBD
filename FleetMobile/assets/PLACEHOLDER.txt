@@ -1,0 +1,7 @@
+# FleetMobile Assets Placeholder
+
+This directory should contain:
+- icon.png - 1024x1024 app icon
+- splash.png - splash screen image  
+- adaptive-icon.png - Android adaptive icon foreground
+- favicon.png - Web favicon

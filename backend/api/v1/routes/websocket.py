@@ -7,12 +7,12 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from backend.config.settings import settings
-from backend.services.auth import decode_token
-from backend.services.websocket_manager import manager
-from backend.services.redis_client import redis_client
-from backend.db.session import get_db
-from backend.domain.models import User, Car
+from config.settings import settings
+from services.auth import decode_token
+from services.websocket_manager import manager
+from services.redis_client import redis_client
+from db.session import get_db
+from domain.models import User, Car
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +111,7 @@ class WebSocketCloseException(Exception):
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    token: str = Query(..., description="JWT authentication token"),
-    db: AsyncSession = None
+    token: str = Query(..., description="JWT authentication token")
 ):
     """
     WebSocket endpoint for real-time telemetry and messaging.

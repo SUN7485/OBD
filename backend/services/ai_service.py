@@ -8,7 +8,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 
-from backend.domain.models import (
+from domain.models import (
     Car,
     OBDData,
     OBDDataHourly,
@@ -19,8 +19,8 @@ from backend.domain.models import (
     SenderType,
     MessageScope,
 )
-from backend.services.llm_client import get_llm_client, LLMError
-from backend.services.prompts import (
+from services.llm_client import get_llm_client, LLMError
+from services.prompts import (
     DTC_EXPLANATION_SYSTEM_PROMPT,
     DTC_EXPLANATION_USER_PROMPT,
     DRIVING_PATTERN_SYSTEM_PROMPT,
@@ -31,7 +31,7 @@ from backend.services.prompts import (
     ANOMALY_ANALYSIS_SYSTEM_PROMPT,
     ANOMALY_ANALYSIS_USER_PROMPT,
 )
-from backend.services.ai_safety import sanitize_response
+from services.ai_safety import sanitize_response
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +254,7 @@ class AIService:
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Get counts
-        from backend.domain.models import Car, Alert
+        from domain.models import Car, Alert
 
         cars_result = await self.db.execute(
             select(func.count(Car.id)).filter(
@@ -499,7 +499,7 @@ class AIService:
         """Continue a conversation with context from previous messages."""
         history = await self.get_conversation_history(user_id, car_id, history_limit)
 
-        from backend.services.prompts import AI_CHAT_SYSTEM_PROMPT
+        from services.prompts import AI_CHAT_SYSTEM_PROMPT
 
         messages = [{"role": "system", "content": AI_CHAT_SYSTEM_PROMPT}]
 

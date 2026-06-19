@@ -7,7 +7,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 import logging
 
-from backend.config.settings import settings
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 

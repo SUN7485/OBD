@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Request
 from fastapi.responses import JSONResponse
 
-from ...middleware.auth import get_current_user
-from ....domain.models import User
+from middleware.auth import get_current_user
+from domain.models import User
 
 router = APIRouter()
 

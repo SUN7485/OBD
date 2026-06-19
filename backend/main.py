@@ -4,20 +4,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
-from .config.settings import settings
-from .api.v1.routes import auth as auth_routes
-from .api.v1.routes import health as health_routes
-from .api.v1.routes import websocket as websocket_routes
-from .api.v1.routes import telemetry as telemetry_routes
-from .api.v1.routes import analytics as analytics_routes
-from .api.v1.routes import alerts as alerts_routes
-from .api.v1.routes import messages as messages_routes
-from .api.v1.routes import ai as ai_routes
-from .api.v1.routes import fleet as fleet_routes
-from .api.v1.routes import batch as batch_routes
+from config.settings import settings
+from api.v1.routes import auth as auth_routes
+from api.v1.routes import health as health_routes
+from api.v1.routes import websocket as websocket_routes
+from api.v1.routes import telemetry as telemetry_routes
+from api.v1.routes import analytics as analytics_routes
+from api.v1.routes import alerts as alerts_routes
+from api.v1.routes import messages as messages_routes
+from api.v1.routes import ai as ai_routes
+from api.v1.routes import fleet as fleet_routes
+from api.v1.routes import batch as batch_routes
 
 # Configure logging
-from .config.logging_config import setup_logging
+from config.logging_config import setup_logging
 
 setup_logging()
 
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
 
     # Startup: check DB connection
     try:
-        from .db.session import AsyncSessionLocal
+        from db.session import AsyncSessionLocal
         from sqlalchemy import text
 
         async with AsyncSessionLocal() as session:
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 
     # Start Redis client
     try:
-        from .services.redis_client import redis_client
+        from services.redis_client import redis_client
 
         await redis_client.connect()
         logging.info("Redis client connected")
@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
 
     # Start WebSocket manager
     try:
-        from .services.websocket_manager import manager
+        from services.websocket_manager import manager
 
         await manager.start()
         logging.info("WebSocket manager started")
@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
 
     # Start MQTT client
     try:
-        from .services.mqtt_client import mqtt_client
+        from services.mqtt_client import mqtt_client
 
         await mqtt_client.connect()
         logging.info("MQTT client connected")
@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
 
     # Stop MQTT client
     try:
-        from .services.mqtt_client import mqtt_client
+        from services.mqtt_client import mqtt_client
 
         await mqtt_client.disconnect()
     except Exception as e:
@@ -81,7 +81,7 @@ async def lifespan(app: FastAPI):
 
     # Stop WebSocket manager
     try:
-        from .services.websocket_manager import manager
+        from services.websocket_manager import manager
 
         await manager.stop()
     except Exception as e:
@@ -89,7 +89,7 @@ async def lifespan(app: FastAPI):
 
     # Disconnect Redis
     try:
-        from .services.redis_client import redis_client
+        from services.redis_client import redis_client
 
         await redis_client.disconnect()
     except Exception as e:
@@ -108,9 +108,9 @@ try:
     from prometheus_fastapi_instrumentator import Instrumentator
 
     instrumentator = Instrumentator(
-        should_group_responses=False,
+        should_group_status_codes=False,
         should_ignore_untemplated=True,
-        excluded_uris="/health,/health/live,/health/ready,/health/metrics",
+        excluded_handlers=["/health", "/health/live", "/health/ready", "/health/metrics"],
     )
     instrumentator.instrument(app).expose(app, endpoint="/metrics")
 except ImportError:

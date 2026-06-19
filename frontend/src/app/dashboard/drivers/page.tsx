@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, Table, Tag, Progress, Typography, Avatar, Space } from 'antd'
-import { TeamOutlined, TrophyOutlined, StarOutlined } from '@ant-design/icons'
+import { Card, Table, Tag, Progress, Typography, Avatar, Space, Row, Col } from 'antd'
+import { TeamOutlined, TrophyOutlined } from '@ant-design/icons'
 import { fleetAPI } from '@/lib/api'
 
 const { Title, Text } = Typography
@@ -20,6 +20,20 @@ interface DriverScore {
   updated_at: string
 }
 
+const cardStyle: React.CSSProperties = {
+  background: '#ffffff',
+  borderRadius: 12,
+  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+  border: '1px solid #e8ecf1',
+}
+
+const getProgressColor = (score: number) => {
+  if (score >= 90) return '#52c41a'
+  if (score >= 70) return '#1890ff'
+  if (score >= 50) return '#faad14'
+  return '#ff4d4f'
+}
+
 export default function DriversPage() {
   const [loading, setLoading] = useState(true)
   const [drivers, setDrivers] = useState<DriverScore[]>([])
@@ -35,7 +49,6 @@ export default function DriversPage() {
       setDrivers(response.data || [])
     } catch (error) {
       console.error('Failed to load drivers:', error)
-      // Use mock data for demo
       setDrivers([
         {
           car_id: '1',
@@ -79,30 +92,24 @@ export default function DriversPage() {
     }
   }
 
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return '#52c41a'
-    if (score >= 70) return '#1890ff'
-    if (score >= 50) return '#faad14'
-    return '#ff4d4f'
-  }
-
   const columns = [
     {
       title: 'Rank',
       key: 'rank',
-      width: 60,
+      width: 70,
+      align: 'center' as const,
       render: (_: any, __: any, index: number) => {
-        if (index === 0) return <TrophyOutlined style={{ color: '#faad14', fontSize: 20 }} />
-        if (index === 1) return <TrophyOutlined style={{ color: '#d9d9d9', fontSize: 18 }} />
-        if (index === 2) return <TrophyOutlined style={{ color: '#d48265', fontSize: 16 }} />
-        return index + 1
+        if (index === 0) return <TrophyOutlined style={{ color: '#faad14', fontSize: 22 }} />
+        if (index === 1) return <TrophyOutlined style={{ color: '#d9d9d9', fontSize: 20 }} />
+        if (index === 2) return <TrophyOutlined style={{ color: '#d48265', fontSize: 18 }} />
+        return <Text strong style={{ fontSize: 16, color: '#64748b' }}>{index + 1}</Text>
       },
     },
     {
-      title: 'Driver/Vehicle',
+      title: 'Driver / Vehicle',
       dataIndex: 'car_name',
       render: (name: string) => (
-        <Space>
+        <Space size={12}>
           <Avatar style={{ backgroundColor: '#1890ff' }}>
             {name.charAt(0)}
           </Avatar>
@@ -112,46 +119,53 @@ export default function DriversPage() {
     },
     {
       title: 'Safety Score',
-      dataIndex: 'safety_score',
-      width: 150,
-      render: (score: number) => (
-        <Progress 
-          percent={score} 
-          strokeColor={getScoreColor(score)}
-          size="small"
-        />
+      key: 'safety_score',
+      width: 180,
+      render: (_: any, record: DriverScore) => (
+        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Progress 
+            percent={record.safety_score} 
+            strokeColor={getProgressColor(record.safety_score)}
+            trailColor="#f5f5f5"
+            size="small"
+          />
+        </Space>
       ),
     },
     {
       title: 'Efficiency',
-      dataIndex: 'efficiency_score',
-      width: 150,
-      render: (score: number) => (
-        <Progress 
-          percent={score} 
-          strokeColor={getScoreColor(score)}
-          size="small"
-        />
+      key: 'efficiency_score',
+      width: 180,
+      render: (_: any, record: DriverScore) => (
+        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Progress 
+            percent={record.efficiency_score} 
+            strokeColor={getProgressColor(record.efficiency_score)}
+            trailColor="#f5f5f5"
+            size="small"
+          />
+        </Space>
       ),
     },
     {
       title: 'Distance (km)',
       dataIndex: 'total_distance_km',
-      render: (km: number) => km.toLocaleString(),
+      render: (km: number) => <Text strong>{km.toLocaleString()}</Text>,
     },
     {
       title: 'Trips',
       dataIndex: 'total_trips',
+      render: (trips: number) => <Text type="secondary">{trips}</Text>
     },
     {
       title: 'Incidents',
       key: 'incidents',
       render: (_: any, record: DriverScore) => (
         <Space>
-          <Tag color={record.harsh_braking_count > 10 ? 'red' : 'default'}>
+          <Tag color={record.harsh_braking_count > 10 ? 'error' : 'default'} style={{ borderRadius: 20 }}>
             Braking: {record.harsh_braking_count}
           </Tag>
-          <Tag color={record.speeding_count > 5 ? 'red' : 'default'}>
+          <Tag color={record.speeding_count > 5 ? 'error' : 'default'} style={{ borderRadius: 20 }}>
             Speeding: {record.speeding_count}
           </Tag>
         </Space>
@@ -162,13 +176,13 @@ export default function DriversPage() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <Title level={2} style={{ margin: 0 }}>
-          <TeamOutlined /> Driver Performance
+        <Title level={2} style={{ margin: 0, fontWeight: 800 }}>
+          <TeamOutlined style={{ color: '#1890ff' }} /> Driver Performance
         </Title>
         <Text type="secondary">Monitor driver behavior and safety scores</Text>
       </div>
 
-      <Card>
+      <Card style={cardStyle}>
         <Table
           dataSource={drivers}
           columns={columns}

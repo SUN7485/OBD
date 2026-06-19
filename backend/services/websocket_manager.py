@@ -9,7 +9,7 @@ import uuid
 
 from fastapi import WebSocket
 
-from backend.services.redis_client import redis_client
+from services.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 

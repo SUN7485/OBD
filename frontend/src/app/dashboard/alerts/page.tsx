@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { 
   Card, Table, Tag, Button, Space, Select, Typography, 
-  Badge, Modal, message, Tabs, Empty 
+  Badge, Modal, message, Tabs, Empty, Row, Col 
 } from 'antd'
 import { 
   BellOutlined, CheckCircleOutlined, ClockCircleOutlined,
@@ -43,7 +43,7 @@ export default function AlertsPage() {
       const params: any = { limit: 100 }
       if (filter) params.severity = filter
       const response = await alertsAPI.list(params)
-      setAlerts(response.data || [])
+      setAlerts(response.data?.alerts || [])
     } catch (error) {
       console.error('Failed to load alerts:', error)
     } finally {
@@ -71,7 +71,7 @@ export default function AlertsPage() {
     }
   }
 
-  const getFilteredAlerts = () => {
+  const getFilteredAlerts = useMemo(() => {
     switch (activeTab) {
       case 'unread':
         return alerts.filter(a => !a.is_read)
@@ -80,7 +80,7 @@ export default function AlertsPage() {
       default:
         return alerts
     }
-  }
+  }, [alerts, activeTab])
 
   const columns = [
     {
@@ -88,9 +88,9 @@ export default function AlertsPage() {
       dataIndex: 'severity',
       width: 100,
       render: (severity: string) => (
-        <Tag color={
-          severity === 'critical' ? 'red' : 
-          severity === 'warning' ? 'orange' : 'blue'
+        <Tag style={{ borderRadius: 20, fontWeight: 600 }} color={
+          severity === 'critical' ? 'error' : 
+          severity === 'warning' ? 'warning' : 'processing'
         }>
           {severity?.toUpperCase()}
         </Tag>
@@ -98,8 +98,7 @@ export default function AlertsPage() {
     },
     {
       title: 'Vehicle',
-      dataIndex: 'car_name',
-      render: (name: string, record: Alert) => name || record.car_id,
+      dataIndex: 'car_id',
     },
     {
       title: 'Message',
@@ -109,17 +108,18 @@ export default function AlertsPage() {
     {
       title: 'Time',
       dataIndex: 'created_at',
-      width: 150,
+      width: 180,
       render: (time: string) => (
-        <Text type="secondary">
-          <ClockCircleOutlined /> {new Date(time).toLocaleString()}
+        <Text type="secondary" style={{ color: '#64748b' }}>
+          <ClockCircleOutlined style={{ marginRight: 4 }} />
+          {new Date(time).toLocaleString()}
         </Text>
       ),
     },
     {
       title: 'Status',
       dataIndex: 'status',
-      width: 120,
+      width: 180,
       render: (_: any, record: Alert) => (
         <Space>
           {!record.is_read && (
@@ -147,44 +147,62 @@ export default function AlertsPage() {
     },
   ]
 
-  const alertStats = {
+  const alertStats = useMemo(() => ({
     critical: alerts.filter(a => a.severity === 'critical' && !a.is_resolved).length,
     warning: alerts.filter(a => a.severity === 'warning' && !a.is_resolved).length,
     unread: alerts.filter(a => !a.is_read).length,
-  }
+  }), [alerts])
 
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <Title level={2} style={{ margin: 0 }}>
-          <BellOutlined /> Alerts
+        <Title level={2} style={{ margin: 0, fontWeight: 800 }}>
+          <BellOutlined style={{ color: '#faad14' }} /> Alerts
         </Title>
         <Text type="secondary">Monitor fleet alerts and notifications</Text>
       </div>
 
-      {/* Alert Stats */}
-      <Space size="large" style={{ marginBottom: 24 }}>
-        <Card size="small">
-          <Badge count={alertStats.critical} overflowCount={99}>
-            <Tag color="red">CRITICAL</Tag>
-          </Badge>
-        </Card>
-        <Card size="small">
-          <Badge count={alertStats.warning} overflowCount={99}>
-            <Tag color="orange">WARNING</Tag>
-          </Badge>
-        </Card>
-        <Card size="small">
-          <Badge count={alertStats.unread} overflowCount={99}>
-            <Tag color="blue">UNREAD</Tag>
-          </Badge>
-        </Card>
-      </Space>
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={8}>
+          <Card size="small" style={{ borderRadius: 10, border: '1px solid #fff1f0', background: '#fff1f0' }}>
+            <Space>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff4d4f' }} />
+              <Text strong>CRITICAL</Text>
+            </Space>
+            <Text style={{ fontSize: 24, fontWeight: 800, color: '#ff4d4f', lineHeight: 1, display: 'block', marginTop: 4 }}>
+              {alertStats.critical}
+            </Text>
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card size="small" style={{ borderRadius: 10, border: '1px solid #fffbe6', background: '#fffbe6' }}>
+            <Space>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#faad14' }} />
+              <Text strong>WARNING</Text>
+            </Space>
+            <Text style={{ fontSize: 24, fontWeight: 800, color: '#d46b08', lineHeight: 1, display: 'block', marginTop: 4 }}>
+              {alertStats.warning}
+            </Text>
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card size="small" style={{ borderRadius: 10, border: '1px solid #e6f7ff', background: '#e6f7ff' }}>
+            <Space>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#1890ff' }} />
+              <Text strong>UNREAD</Text>
+            </Space>
+            <Text style={{ fontSize: 24, fontWeight: 800, color: '#1677ff', lineHeight: 1, display: 'block', marginTop: 4 }}>
+              {alertStats.unread}
+            </Text>
+          </Card>
+        </Col>
+      </Row>
 
-      <Card>
+      <Card style={{ borderRadius: 12, border: '1px solid #e8ecf1' }}>
         <Tabs 
           activeKey={activeTab} 
           onChange={setActiveTab}
+          style={{ marginBottom: 16 }}
           items={[
             { key: 'all', label: 'All' },
             { key: 'unread', label: 'Unread' },
@@ -206,11 +224,12 @@ export default function AlertsPage() {
         </Space>
 
         <Table
-          dataSource={getFilteredAlerts()}
+          dataSource={getFilteredAlerts}
           columns={columns}
           rowKey="id"
           loading={loading}
-          locale={{ emptyText: <Empty description="No alerts" /> }}
+          pagination={{ pageSize: 20 }}
+          locale={{ emptyText: <Empty description="No alerts" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
         />
       </Card>
     </div>

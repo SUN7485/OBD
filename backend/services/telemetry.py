@@ -8,8 +8,8 @@ from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
 
-from backend.domain.models import OBDData, Car
-from backend.api.v1.schemas.telemetry import (
+from domain.models import OBDData, Car
+from api.v1.schemas.telemetry import (
     TelemetryIngestRequest,
     TelemetryHistoryResponse,
     TelemetryPoint,
@@ -189,7 +189,7 @@ class TelemetryService:
         offset: int
     ) -> TelemetryHistoryResponse:
         """Get hourly aggregated telemetry."""
-        from backend.domain.models import OBDDataHourly
+        from domain.models import OBDDataHourly
 
         # Get total count
         count_query = select(func.count()).select_from(OBDDataHourly).filter(

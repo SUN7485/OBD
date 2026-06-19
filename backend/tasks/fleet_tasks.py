@@ -18,9 +18,9 @@ def calculate_daily_driver_scores(self):
     import asyncio
     
     async def _calculate():
-        from backend.db.session import AsyncSessionLocal
-        from backend.services.driver import DriverScoreService
-        from backend.domain.models import Organization
+        from db.session import AsyncSessionLocal
+        from services.driver import DriverScoreService
+        from domain.models import Organization
         from sqlalchemy import select
         
         async with AsyncSessionLocal() as db:
@@ -61,9 +61,9 @@ def run_fuel_anomaly_detection(self):
     import asyncio
     
     async def _detect():
-        from backend.db.session import AsyncSessionLocal
-        from backend.services.fuel_anomaly import FuelAnomalyService
-        from backend.domain.models import Car
+        from db.session import AsyncSessionLocal
+        from services.fuel_anomaly import FuelAnomalyService
+        from domain.models import Car
         from sqlalchemy import select
         
         async with AsyncSessionLocal() as db:
@@ -113,9 +113,9 @@ def run_maintenance_predictions(self):
     import asyncio
     
     async def _predict():
-        from backend.db.session import AsyncSessionLocal
-        from backend.services.driver import MaintenanceService
-        from backend.domain.models import Car
+        from db.session import AsyncSessionLocal
+        from services.driver import MaintenanceService
+        from domain.models import Car
         from sqlalchemy import select
         
         async with AsyncSessionLocal() as db:
@@ -155,9 +155,9 @@ def process_geofence_locations(self):
     import asyncio
     
     async def _process():
-        from backend.db.session import AsyncSessionLocal
-        from backend.services.geofence import GeofenceService
-        from backend.domain.models import Car, OBDData
+        from db.session import AsyncSessionLocal
+        from services.geofence import GeofenceService
+        from domain.models import Car, OBDData
         from sqlalchemy import select, func
         from datetime import timedelta
         
@@ -220,8 +220,8 @@ def generate_fleet_report(self):
     import asyncio
     
     async def _generate():
-        from backend.db.session import AsyncSessionLocal
-        from backend.domain.models import Organization, Car, Alert, OBDDataHourly
+        from db.session import AsyncSessionLocal
+        from domain.models import Organization, Car, Alert, OBDDataHourly
         from sqlalchemy import select, func, and_
         from datetime import timedelta
         
@@ -290,7 +290,7 @@ def generate_fleet_report(self):
                     
                     # Broadcast to admin via WebSocket
                     try:
-                        from backend.services.websocket_manager import manager
+                        from services.websocket_manager import manager
                         await manager.broadcast_to_org(
                             org.id,
                             {

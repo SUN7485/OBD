@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ..domain.models import DeviceAPIKey
+from domain.models import DeviceAPIKey
 
 
 def generate_api_key() -> str:

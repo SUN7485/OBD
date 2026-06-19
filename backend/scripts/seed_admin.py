@@ -8,8 +8,8 @@ from passlib.hash import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.db.session import AsyncSessionLocal, engine
-from backend.db.models import User, Organization
+from db.session import AsyncSessionLocal, engine
+from db.models import User, Organization
 
 
 async def seed_admin():

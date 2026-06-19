@@ -7,10 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from backend.db.session import get_db
-from backend.middleware.auth import get_current_user
-from backend.domain.models import User, UserRole
-from backend.services.ai_service import AIService
+from db.session import get_db
+from middleware.auth import get_current_user
+from domain.models import User, UserRole
+from services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ async def chat_with_ai(
     # Broadcast to WebSocket if car context
     if request.car_id:
         try:
-            from backend.services.websocket_manager import manager
+            from services.websocket_manager import manager
             await manager.broadcast_to_car(
                 request.car_id,
                 {
@@ -156,7 +156,7 @@ async def explain_dtc_codes(
 
     # Broadcast result
     try:
-        from backend.services.websocket_manager import manager
+        from services.websocket_manager import manager
         await manager.broadcast_to_car(
             request.car_id,
             {

@@ -17,7 +17,7 @@ def upgrade() -> None:
         sa.Column('name', sa.String(255), nullable=False),
         sa.Column('description', sa.Text(), nullable=True),
         sa.Column('geofence_type', sa.String(50), nullable=False),
-        sa.Column('geometry', sa.JSONB(), nullable=False),
+        sa.Column('geometry', sa.dialects.postgresql.JSONB(), nullable=False),
         sa.Column('is_active', sa.Boolean(), default=True),
         sa.Column('notify_on_entry', sa.Boolean(), default=True),
         sa.Column('notify_on_exit', sa.Boolean(), default=True),
@@ -35,7 +35,7 @@ def upgrade() -> None:
         sa.Column('car_id', sa.UUID(), sa.ForeignKey('cars.id', ondelete='CASCADE'), nullable=False),
         sa.Column('event_type', sa.String(20), nullable=False),
         sa.Column('event_time', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column('location', sa.JSONB(), nullable=True)
+        sa.Column('location', sa.dialects.postgresql.JSONB(), nullable=True)
     )
     op.create_index('idx_geofence_events_car_time', 'geofence_events', ['car_id', 'event_time'])
     

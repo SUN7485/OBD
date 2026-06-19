@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.domain.models import Car, OBDData
+from domain.models import Car, OBDData
 
 logger = logging.getLogger(__name__)
 

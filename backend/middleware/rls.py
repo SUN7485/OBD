@@ -35,7 +35,7 @@ class RLSMiddleware(BaseHTTPMiddleware):
             auth_header = request.headers.get("Authorization")
             if auth_header and auth_header.startswith("Bearer "):
                 try:
-                    from backend.services.auth import decode_token
+                    from services.auth import decode_token
                     token = auth_header.split(" ")[1]
                     payload = decode_token(token)
                     org_id = payload.get("organization_id")

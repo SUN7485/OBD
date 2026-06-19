@@ -25,8 +25,8 @@ def aggregate_hourly_data(self):
     import asyncio
     
     async def _aggregate_hourly():
-        from backend.db.session import AsyncSessionLocal
-        from backend.domain.models import OBDData, OBDDataHourly
+        from db.session import AsyncSessionLocal
+        from domain.models import OBDData, OBDDataHourly
         from sqlalchemy import select, func, and_
         from sqlalchemy.dialects.postgresql import insert
         
@@ -123,8 +123,8 @@ def generate_daily_fleet_summary(self):
     import asyncio
     
     async def _generate_summary():
-        from backend.db.session import AsyncSessionLocal
-        from backend.domain.models import Organization, OBDDataHourly
+        from db.session import AsyncSessionLocal
+        from domain.models import Organization, OBDDataHourly
         from sqlalchemy import select, func
         
         async with AsyncSessionLocal() as db:
@@ -201,8 +201,8 @@ def backfill_hourly_data(self, start_date: str, end_date: str):
     from datetime import datetime
     
     async def _backfill():
-        from backend.db.session import AsyncSessionLocal
-        from backend.domain.models import OBDData, OBDDataHourly
+        from db.session import AsyncSessionLocal
+        from domain.models import OBDData, OBDDataHourly
         from sqlalchemy import select, func, and_
         
         start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)

@@ -3,11 +3,10 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
     async_sessionmaker
 )
-from sqlalchemy.orm import scoped_session
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from ..config.settings import settings
+from config.settings import settings
 
 engine = create_async_engine(
     settings.DATABASE_URL,
@@ -15,14 +14,15 @@ engine = create_async_engine(
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_pre_ping=True,
     echo=settings.DEBUG,
-    future=True
+    future=True,
 )
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     expire_on_commit=False,
-    class_=AsyncSession
+    class_=AsyncSession,
 )
+
 
 @asynccontextmanager
 async def session_manager() -> AsyncGenerator[AsyncSession, None]:
@@ -34,7 +34,11 @@ async def session_manager() -> AsyncGenerator[AsyncSession, None]:
         await session.rollback()
         raise
     finally:
-        await session.close()
+        try:
+            await session.close()
+        except Exception:
+            pass
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with session_manager() as session:

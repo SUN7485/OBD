@@ -8,7 +8,7 @@ import uuid
 import httpx
 from pydantic import BaseModel
 
-from backend.config.settings import settings
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 

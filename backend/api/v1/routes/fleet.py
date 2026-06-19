@@ -9,13 +9,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from backend.db.session import get_db
-from backend.middleware.auth import get_current_user
-from backend.domain.models import User, UserRole, GeofenceType, MaintenanceType
-from backend.services.geofence import GeofenceService
-from backend.services.driver import DriverScoreService, MaintenanceService
-from backend.services.fuel_anomaly import FuelAnomalyService
-from backend.services.trips import TripDetectionService
+from db.session import get_db
+from middleware.auth import get_current_user
+from domain.models import User, UserRole, GeofenceType, MaintenanceType
+from services.geofence import GeofenceService
+from services.driver import DriverScoreService, MaintenanceService
+from services.fuel_anomaly import FuelAnomalyService
+from services.trips import TripDetectionService
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ async def check_location(
     # Broadcast events to WebSocket
     if events:
         try:
-            from backend.services.websocket_manager import manager
+            from services.websocket_manager import manager
 
             for event in events:
                 if event.get("notify"):
@@ -413,7 +413,7 @@ async def create_api_key(
         raise HTTPException(status_code=403, detail="Admin or fleet manager required")
 
     from sqlalchemy.future import select
-    from backend.domain.models import Car
+    from domain.models import Car
 
     result = await db.execute(
         select(Car).filter(
@@ -425,12 +425,12 @@ async def create_api_key(
     if not car:
         raise HTTPException(status_code=404, detail="Car not found")
 
-    from backend.services import api_keys as api_key_service
+    from services import api_keys as api_key_service
 
     raw_key = api_key_service.generate_api_key()
     key_hash = api_key_service.hash_api_key(raw_key)
 
-    from backend.domain.models import DeviceAPIKey
+    from domain.models import DeviceAPIKey
 
     api_key = DeviceAPIKey(
         organization_id=current_user.organization_id,
@@ -463,7 +463,7 @@ async def list_api_keys(
         raise HTTPException(status_code=403, detail="Admin or fleet manager required")
 
     from sqlalchemy.future import select
-    from backend.domain.models import DeviceAPIKey
+    from domain.models import DeviceAPIKey
 
     query = select(DeviceAPIKey).filter(
         DeviceAPIKey.organization_id == current_user.organization_id
@@ -500,7 +500,7 @@ async def revoke_api_key(
         raise HTTPException(status_code=403, detail="Admin or fleet manager required")
 
     from sqlalchemy.future import select
-    from backend.domain.models import DeviceAPIKey
+    from domain.models import DeviceAPIKey
 
     result = await db.execute(
         select(DeviceAPIKey).filter(
@@ -631,7 +631,7 @@ async def get_user(
         raise HTTPException(status_code=403, detail="Admin role required")
 
     from sqlalchemy.future import select
-    from backend.domain.models import Car
+    from domain.models import Car
 
     result = await db.execute(
         select(User).filter(
@@ -751,7 +751,7 @@ async def assign_car_to_driver(
         raise HTTPException(status_code=403, detail="Admin role required")
 
     from sqlalchemy.future import select
-    from backend.domain.models import Car
+    from domain.models import Car
 
     user_result = await db.execute(
         select(User).filter(

@@ -5,17 +5,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError, ExpiredSignatureError
 from datetime import timedelta, datetime, timezone
 
-from ...db.session import get_db
-from ...services import auth as auth_service
-from ...api.v1.schemas.auth import (
+from db.session import get_db
+from services import auth as auth_service
+from api.v1.schemas.auth import (
     LoginRequest,
     TokenResponse,
     RefreshRequest,
     UserResponse,
     RegisterRequest,
 )
-from ...middleware.auth import get_current_user
-from ...domain.models import User, Organization, UserRole
+from middleware.auth import get_current_user
+from domain.models import User, Organization, UserRole
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

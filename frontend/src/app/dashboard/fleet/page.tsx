@@ -7,7 +7,7 @@ import {
 } from 'antd'
 import { 
   PlusOutlined, EditOutlined, DeleteOutlined, 
-  CarOutlined, SearchOutlined, ReloadOutlined 
+  CarOutlined
 } from '@ant-design/icons'
 import { carsAPI, fleetAPI } from '@/lib/api'
 import { useFleetStore, useTelemetryStore } from '@/lib/store'
@@ -25,6 +25,15 @@ interface Car {
   status: string
   vin?: string
   assigned_driver?: string
+}
+
+const mainCardsStyle: React.CSSProperties = {
+  background: '#ffffff',
+  borderRadius: 12,
+  padding: 20,
+  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+  border: '1px solid #e8ecf1',
+  height: '100%',
 }
 
 export default function FleetPage() {
@@ -85,11 +94,11 @@ export default function FleetPage() {
       title: 'Vehicle',
       dataIndex: 'name',
       render: (name: string, record: Car) => (
-        <Space>
-          <CarOutlined style={{ fontSize: 24, color: '#1890ff' }} />
+        <Space size={12}>
+          <CarOutlined style={{ fontSize: 20, color: '#1890ff' }} />
           <div>
-            <div style={{ fontWeight: 500 }}>{name}</div>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <div style={{ fontWeight: 600 }}>{name}</div>
+            <Text type="secondary" style={{ fontSize: 12, color: '#64748b' }}>
               {record.make} {record.model} ({record.year})
             </Text>
           </div>
@@ -104,7 +113,7 @@ export default function FleetPage() {
       render: (status: string) => {
         const isOnline = liveData[status as any] !== undefined
         return (
-          <Tag color={isOnline ? 'green' : 'default'}>
+          <Tag color={isOnline ? 'success' : 'default'} style={{ borderRadius: 20 }}>
             {isOnline ? 'Online' : 'Offline'}
           </Tag>
         )
@@ -113,7 +122,7 @@ export default function FleetPage() {
     { 
       title: 'Live Speed', 
       dataIndex: 'id',
-      render: (id: string) => liveData[id]?.speed?.toFixed(0) + ' km/h' || '-'
+      render: (id: string) => <Text strong>{liveData[id]?.speed?.toFixed(0) + ' km/h' || '-'}</Text>
     },
     {
       title: 'Actions',
@@ -142,9 +151,11 @@ export default function FleetPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <Title level={2} style={{ margin: 0 }}>Fleet Management</Title>
+          <Title level={2} style={{ margin: 0, fontWeight: 800 }}>
+            <CarOutlined style={{ color: '#1890ff' }} /> Fleet Management
+          </Title>
           <Text type="secondary">Manage your vehicles</Text>
         </div>
         <Button 
@@ -160,39 +171,46 @@ export default function FleetPage() {
         </Button>
       </div>
 
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={6}>
-          <Card>
-            <Statistic 
-              title="Total Vehicles" 
-              value={cars.length} 
-              prefix={<CarOutlined />} 
-            />
-          </Card>
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={8}>
+          <div style={mainCardsStyle}>
+            <Space direction="vertical" size="small">
+              <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Total Vehicles
+              </span>
+              <Text style={{ fontSize: 32, fontWeight: 800, color: '#1677ff', lineHeight: 1 }}>
+                {cars.length}
+              </Text>
+            </Space>
+          </div>
         </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic 
-              title="Online" 
-              value={Object.keys(liveData).length} 
-              valueStyle={{ color: '#52c41a' }}
-              prefix={<CarOutlined />} 
-            />
-          </Card>
+        <Col xs={24} sm={8}>
+          <div style={mainCardsStyle}>
+            <Space direction="vertical" size="small">
+              <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Online
+              </span>
+              <Text style={{ fontSize: 32, fontWeight: 800, color: '#389e0d', lineHeight: 1 }}>
+                {Object.keys(liveData).length}
+              </Text>
+            </Space>
+          </div>
         </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic 
-              title="Offline" 
-              value={cars.length - Object.keys(liveData).length} 
-              valueStyle={{ color: '#8c8c8c' }}
-              prefix={<CarOutlined />} 
-            />
-          </Card>
+        <Col xs={24} sm={8}>
+          <div style={mainCardsStyle}>
+            <Space direction="vertical" size="small">
+              <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Offline
+              </span>
+              <Text style={{ fontSize: 32, fontWeight: 800, color: '#8c8c8c', lineHeight: 1 }}>
+                {cars.length - Object.keys(liveData).length}
+              </Text>
+            </Space>
+          </div>
         </Col>
       </Row>
 
-      <Card>
+      <Card style={{ borderRadius: 12, border: '1px solid #e8ecf1' }}>
         <Table
           dataSource={cars}
           columns={columns}

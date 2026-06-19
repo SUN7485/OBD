@@ -6,10 +6,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.db.session import get_db
-from backend.middleware.auth import get_current_user
-from backend.domain.models import User, UserRole
-from backend.services.analytics import AnalyticsService
+from db.session import get_db
+from middleware.auth import get_current_user
+from domain.models import User, UserRole
+from services.analytics import AnalyticsService
 
 logger = logging.getLogger(__name__)
 

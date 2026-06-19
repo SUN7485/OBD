@@ -37,12 +37,12 @@ def trigger_ai_diagnostic(
     import asyncio
     
     async def _trigger_ai():
-        from backend.db.session import AsyncSessionLocal
-        from backend.services.ai_service import AIService
-        from backend.services.websocket_manager import manager
+        from db.session import AsyncSessionLocal
+        from services.ai_service import AIService
+        from services.websocket_manager import manager
         
         # Check rate limit
-        from backend.services.redis_client import redis_client
+        from services.redis_client import redis_client
         await redis_client.connect()
         
         rate_key = f"{RATE_LIMIT_PREFIX}{car_id}"
@@ -64,7 +64,7 @@ def trigger_ai_diagnostic(
         async with AsyncSessionLocal() as db:
             # Get user_id from car assignment or use system
             from sqlalchemy import select
-            from backend.domain.models import Car
+            from domain.models import Car
             
             result = await db.execute(
                 select(Car).filter(Car.id == car_uuid)
@@ -80,7 +80,7 @@ def trigger_ai_diagnostic(
             
             if not user_id:
                 # Get any admin user
-                from backend.domain.models import User
+                from domain.models import User
                 result = await db.execute(
                     select(User.id).filter(
                         User.organization_id == car.organization_id,
@@ -162,16 +162,16 @@ def trigger_ai_analysis(
     import asyncio
     
     async def _trigger_ai():
-        from backend.db.session import AsyncSessionLocal
-        from backend.services.ai_service import AIService
-        from backend.services.websocket_manager import manager
-        from backend.services.prompts import ANOMALY_ANALYSIS_USER_PROMPT
+        from db.session import AsyncSessionLocal
+        from services.ai_service import AIService
+        from services.websocket_manager import manager
+        from services.prompts import ANOMALY_ANALYSIS_USER_PROMPT
         
         car_uuid = uuid.UUID(car_id)
         
         async with AsyncSessionLocal() as db:
             from sqlalchemy import select
-            from backend.domain.models import Car
+            from domain.models import Car
             
             result = await db.execute(
                 select(Car).filter(Car.id == car_uuid)
@@ -210,8 +210,8 @@ def trigger_ai_analysis(
             )
             
             # Get LLM client
-            from backend.services.llm_client import get_llm_client
-            from backend.services.ai_safety import sanitize_response
+            from services.llm_client import get_llm_client
+            from services.ai_safety import sanitize_response
             
             llm_client = get_llm_client()
             

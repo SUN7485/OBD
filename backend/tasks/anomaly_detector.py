@@ -40,10 +40,10 @@ def detect_anomalies(
     import asyncio
     
     async def _detect_anomalies():
-        from backend.db.session import AsyncSessionLocal
-        from backend.services.alerts import AlertService
-        from backend.services.alerts import AlertType, AlertSeverity
-        from backend.domain.models import Car, OBDData
+        from db.session import AsyncSessionLocal
+        from services.alerts import AlertService
+        from services.alerts import AlertType, AlertSeverity
+        from domain.models import Car, OBDData
         from sqlalchemy import select, func, and_
         
         car_uuid = uuid.UUID(car_id)
@@ -135,7 +135,7 @@ def detect_anomalies(
                     
                     # Broadcast to WebSocket
                     try:
-                        from backend.services.websocket_manager import manager
+                        from services.websocket_manager import manager
                         await manager.broadcast_to_car(
                             car_uuid,
                             {
@@ -154,7 +154,7 @@ def detect_anomalies(
                 # Trigger AI analysis for significant anomalies
                 if len(anomalies) >= 2:
                     try:
-                        from backend.tasks.ai_tasks import trigger_ai_analysis
+                        from tasks.ai_tasks import trigger_ai_analysis
                         trigger_ai_analysis.delay(car_id, telemetry_data, {
                             "anomalies": anomalies,
                             "baseline": {

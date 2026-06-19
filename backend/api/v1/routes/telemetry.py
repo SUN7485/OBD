@@ -8,18 +8,18 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ....db.session import get_db
-from ....middleware.auth import get_current_user, get_current_device
-from ....domain.models import User, DeviceAPIKey
-from backend.api.v1.schemas.telemetry import (
+from db.session import get_db
+from middleware.auth import get_current_user, get_current_device
+from domain.models import User, DeviceAPIKey
+from api.v1.schemas.telemetry import (
     TelemetryIngestRequest,
     TelemetryIngestResponse,
     TelemetryHistoryRequest,
     TelemetryHistoryResponse,
     TelemetryLatestResponse,
 )
-from backend.services.telemetry import TelemetryService
-from backend.services.websocket_manager import manager
+from services.telemetry import TelemetryService
+from services.websocket_manager import manager
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +228,7 @@ async def list_cars_with_telemetry(
     List all cars in the organization with their latest telemetry timestamps.
     """
     from sqlalchemy import select, func, and_
-    from backend.domain.models import Car, OBDData
+    from domain.models import Car, OBDData
 
     # Get cars with latest telemetry time
     subquery = (

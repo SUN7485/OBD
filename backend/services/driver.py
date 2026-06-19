@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.domain.models import (
+from domain.models import (
     DriverScore, User, Car, OBDData, OBDDataHourly,
     MaintenanceSchedule, MaintenancePrediction, MaintenanceType, MaintenanceStatus
 )

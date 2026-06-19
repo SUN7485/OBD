@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Form, Input, Button, Card, message, Tabs, Radio, App } from 'antd'
+import { Form, Input, Button, Card, message, Tabs, Radio } from 'antd'
 import { UserOutlined, LockOutlined, CarOutlined } from '@ant-design/icons'
 import { useAuthStore } from '@/lib/store'
 import { authAPI } from '@/lib/api'
@@ -12,7 +12,6 @@ export default function LoginPage() {
   const { setAuth } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('login')
-  const { message: antdMessage } = App.useApp()
 
   const onLogin = async (values: { email: string; password: string }) => {
     setLoading(true)
@@ -21,10 +20,10 @@ export default function LoginPage() {
       const { access_token, user } = response.data
       setAuth(access_token, user)
       localStorage.setItem('token', access_token)
-      antdMessage.success('Login successful!')
+      message.success('Login successful!')
       router.push('/dashboard')
     } catch (error: any) {
-      antdMessage.error(error.response?.data?.detail || 'Login failed')
+      message.error(error.response?.data?.detail || 'Login failed')
     } finally {
       setLoading(false)
     }
@@ -45,10 +44,10 @@ export default function LoginPage() {
         values.organization_name,
         values.full_name || values.email.split('@')[0]
       )
-      antdMessage.success('Registration successful! Please login.')
+      message.success('Registration successful! Please login.')
       setActiveTab('login')
     } catch (error: any) {
-      antdMessage.error(error.response?.data?.detail || 'Registration failed')
+      message.error(error.response?.data?.detail || 'Registration failed')
     } finally {
       setLoading(false)
     }

@@ -3,7 +3,7 @@ import logging
 from celery import Celery
 from celery.schedules import crontab
 
-from backend.config.settings import settings
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -13,11 +13,11 @@ celery_app = Celery(
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
     include=[
-        "backend.tasks.threshold_checker",
-        "backend.tasks.anomaly_detector",
-        "backend.tasks.data_aggregator",
-        "backend.tasks.ai_tasks",
-        "backend.tasks.fleet_tasks"
+        "tasks.threshold_checker",
+        "tasks.anomaly_detector",
+        "tasks.data_aggregator",
+        "tasks.ai_tasks",
+        "tasks.fleet_tasks",
     ]
 )
 
@@ -37,10 +37,10 @@ celery_app.conf.update(
     
     # Task routing
     task_routes={
-        "backend.tasks.threshold_checker.*": {"queue": "default"},
-        "backend.tasks.anomaly_detector.*": {"queue": "default"},
-        "backend.tasks.data_aggregator.*": {"queue": "aggregation"},
-        "backend.tasks.ai_tasks.*": {"queue": "ai"},
+        "tasks.threshold_checker.*": {"queue": "default"},
+        "tasks.anomaly_detector.*": {"queue": "default"},
+        "tasks.data_aggregator.*": {"queue": "aggregation"},
+        "tasks.ai_tasks.*": {"queue": "ai"},
     },
     
     # Worker configuration
@@ -58,43 +58,43 @@ celery_app.conf.update(
     beat_schedule={
         # Hourly data aggregation
         "aggregate-hourly-data": {
-            "task": "backend.tasks.data_aggregator.aggregate_hourly_data",
+            "task": "tasks.data_aggregator.aggregate_hourly_data",
             "schedule": crontab(minute=5),  # Run at minute 5 of every hour
         },
         
         # Daily fleet summary (optional)
         "daily-fleet-summary": {
-            "task": "backend.tasks.data_aggregator.generate_daily_fleet_summary",
+            "task": "tasks.data_aggregator.generate_daily_fleet_summary",
             "schedule": crontab(hour=1, minute=0),  # Run at 1 AM UTC
         },
         
         # Daily driver scores
         "daily-driver-scores": {
-            "task": "backend.tasks.fleet_tasks.calculate_daily_driver_scores",
+            "task": "tasks.fleet_tasks.calculate_daily_driver_scores",
             "schedule": crontab(hour=2, minute=0),  # Run at 2 AM UTC
         },
         
         # Daily fuel anomaly detection
         "daily-fuel-anomaly-detection": {
-            "task": "backend.tasks.fleet_tasks.run_fuel_anomaly_detection",
+            "task": "tasks.fleet_tasks.run_fuel_anomaly_detection",
             "schedule": crontab(hour=3, minute=0),  # Run at 3 AM UTC
         },
         
         # Weekly maintenance predictions
         "weekly-maintenance-predictions": {
-            "task": "backend.tasks.fleet_tasks.run_maintenance_predictions",
+            "task": "tasks.fleet_tasks.run_maintenance_predictions",
             "schedule": crontab(hour=4, minute=0, day_of_week=0),  # Run at 4 AM every Sunday
         },
         
         # Hourly geofence processing
         "hourly-geofence-processing": {
-            "task": "backend.tasks.fleet_tasks.process_geofence_locations",
+            "task": "tasks.fleet_tasks.process_geofence_locations",
             "schedule": crontab(minute=30),  # Run at minute 30 every hour
         },
         
         # Daily fleet report
         "daily-fleet-report": {
-            "task": "backend.tasks.fleet_tasks.generate_fleet_report",
+            "task": "tasks.fleet_tasks.generate_fleet_report",
             "schedule": crontab(hour=6, minute=0),  # Run at 6 AM UTC
         },
     }
@@ -105,10 +105,10 @@ celery_app.conf.update(
 def register_tasks():
     """Import all tasks to register them with Celery."""
     try:
-        import backend.tasks.threshold_checker
-        import backend.tasks.anomaly_detector
-        import backend.tasks.data_aggregator
-        import backend.tasks.ai_tasks
+        import tasks.threshold_checker
+        import tasks.anomaly_detector
+        import tasks.data_aggregator
+        import tasks.ai_tasks
         logger.info("Celery tasks registered")
     except Exception as e:
         logger.error(f"Error registering tasks: {e}")

@@ -41,10 +41,10 @@ def check_thresholds(
     import asyncio
     
     async def _check_thresholds():
-        from backend.db.session import AsyncSessionLocal
-        from backend.services.alerts import AlertService
-        from backend.services.alerts import AlertType, AlertSeverity
-        from backend.domain.models import Car
+        from db.session import AsyncSessionLocal
+        from services.alerts import AlertService
+        from services.alerts import AlertType, AlertSeverity
+        from domain.models import Car
         
         car_uuid = uuid.UUID(car_id)
         
@@ -136,7 +136,7 @@ def check_thresholds(
                 
                 # Trigger AI diagnostic
                 try:
-                    from backend.tasks.ai_tasks import trigger_ai_diagnostic
+                    from tasks.ai_tasks import trigger_ai_diagnostic
                     trigger_ai_diagnostic.delay(car_id, dtc_codes)
                 except Exception as e:
                     logger.error(f"Failed to trigger AI diagnostic: {e}")
@@ -144,7 +144,7 @@ def check_thresholds(
             # Broadcast alerts via WebSocket
             if alerts_created:
                 try:
-                    from backend.services.websocket_manager import manager
+                    from services.websocket_manager import manager
                     for alert in alerts_created:
                         await manager.broadcast_to_car(
                             car_uuid,

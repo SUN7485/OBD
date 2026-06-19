@@ -7,11 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from backend.db.session import get_db
-from backend.middleware.auth import get_current_user
-from backend.domain.models import User, AlertType, AlertSeverity
-from backend.services.alerts import AlertService
-from backend.services.websocket_manager import manager
+from db.session import get_db
+from middleware.auth import get_current_user
+from domain.models import User, AlertType, AlertSeverity
+from services.alerts import AlertService
+from services.websocket_manager import manager
 
 logger = logging.getLogger(__name__)
 

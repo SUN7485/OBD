@@ -3,7 +3,7 @@ uvicorn[standard]==0.32.0
 sqlalchemy[asyncio]==2.0.25
 asyncpg==0.29.0
 alembic==1.13.1
-pydantic==2.10.0
+pydantic[email]==2.10.0
 pydantic-settings==2.6.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
@@ -20,3 +20,4 @@ sentry-sdk[fastapi]==2.20.0
 gmqtt==0.6.0
 asyncio-mqtt==0.16.1
 prometheus-fastapi-instrumentator==7.1.0
+numpy==1.26.4

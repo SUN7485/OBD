@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.domain.models import Alert, AlertType, AlertSeverity, Car
+from domain.models import Alert, AlertType, AlertSeverity, Car
 
 logger = logging.getLogger(__name__)
 

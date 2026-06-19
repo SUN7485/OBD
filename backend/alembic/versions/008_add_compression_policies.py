@@ -17,24 +17,13 @@ depends_on = None
 
 
 def upgrade():
-    # Enable compression and add compression policy for obd_data
-    op.execute("""
-        ALTER TABLE obd_data SET (
-            timescaledb.compress,
-            timescaledb.compress_segmentby = 'car_id'
-        )
-    """)
+    # Compression is already enabled by migration 004, we only need policies.
+    # Add/ensure compression policy for obd_data (idempotent via if_not_exists).
     op.execute("""
         SELECT add_compression_policy('obd_data', INTERVAL '7 days', if_not_exists => TRUE)
     """)
     
-    # Enable compression and add compression policy for obd_data_hourly
-    op.execute("""
-        ALTER TABLE obd_data_hourly SET (
-            timescaledb.compress,
-            timescaledb.compress_segmentby = 'car_id'
-        )
-    """)
+    # Add/ensure compression policy for obd_data_hourly
     op.execute("""
         SELECT add_compression_policy('obd_data_hourly', INTERVAL '30 days', if_not_exists => TRUE)
     """)

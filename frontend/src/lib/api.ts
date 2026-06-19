@@ -45,8 +45,8 @@ export const authAPI = {
 
 // Cars API
 export const carsAPI = {
-  list: () => api.get('/cars'),
-  get: (id: string) => api.get(`/cars/${id}`),
+  list: () => api.get('/telemetry/cars'),
+  get: (id: string) => api.get(`/telemetry/latest/${id}`),
   create: (data: any) => api.post('/cars', data),
   update: (id: string, data: any) => api.put(`/cars/${id}`, data),
   delete: (id: string) => api.delete(`/cars/${id}`),

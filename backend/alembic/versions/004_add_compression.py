@@ -21,12 +21,10 @@ def upgrade() -> None:
         );
     """)
     
-    # Disable RLS temporarily to allow compression
-    op.execute("""
-        ALTER TABLE obd_data DISABLE ROW LEVEL SECURITY;
-    """)
-    
     # Enable compression on obd_data
+    # NOTE: Cannot ENABLE/DISABLE ROW LEVEL SECURITY on hypertables with
+    # columnstore (compression) enabled. RLS was never successfully enabled
+    # on these hypertables in previous migrations, so we skip it here.
     op.execute("""
         ALTER TABLE obd_data SET (
             timescaledb.compress,
@@ -42,22 +40,12 @@ def upgrade() -> None:
         );
     """)
     
-    # Re-enable RLS
-    op.execute("""
-        ALTER TABLE obd_data ENABLE ROW LEVEL SECURITY;
-    """)
-    
     # Also set up compression on obd_data_hourly
     op.execute("""
         SELECT create_hypertable('obd_data_hourly', 'time',
             if_not_exists => TRUE,
             migrate_data => FALSE
         );
-    """)
-    
-    # Disable RLS temporarily for hourly table
-    op.execute("""
-        ALTER TABLE obd_data_hourly DISABLE ROW LEVEL SECURITY;
     """)
     
     op.execute("""
@@ -74,19 +62,9 @@ def upgrade() -> None:
             if_not_exists => TRUE
         );
     """)
-    
-    # Re-enable RLS for hourly table
-    op.execute("""
-        ALTER TABLE obd_data_hourly ENABLE ROW LEVEL SECURITY;
-    """)
 
 
 def downgrade() -> None:
-    # Disable RLS before removing compression
-    op.execute("""
-        ALTER TABLE obd_data DISABLE ROW LEVEL SECURITY;
-    """)
-    
     # Remove compression policies
     op.execute("""
         SELECT remove_compression_policy('obd_data', if_exists => TRUE);
@@ -97,6 +75,9 @@ def downgrade() -> None:
     """)
     
     # Disable compression
+    # NOTE: Cannot ENABLE/DISABLE ROW LEVEL SECURITY on hypertables with
+    # columnstore enabled. RLS was never successfully enabled on these
+    # hypertables, so we skip RLS operations in downgrade as well.
     op.execute("""
         ALTER TABLE obd_data SET (
             timescaledb.compress = FALSE
@@ -107,13 +88,4 @@ def downgrade() -> None:
         ALTER TABLE obd_data_hourly SET (
             timescaledb.compress = FALSE
         );
-    """)
-    
-    # Re-enable RLS
-    op.execute("""
-        ALTER TABLE obd_data ENABLE ROW LEVEL SECURITY;
-    """)
-    
-    op.execute("""
-        ALTER TABLE obd_data_hourly ENABLE ROW LEVEL SECURITY;
     """)

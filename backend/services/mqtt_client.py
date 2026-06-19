@@ -8,10 +8,10 @@ from urllib.parse import urlparse
 
 from gmqtt import Client as MQTTClient
 
-from backend.config.settings import settings
-from backend.services.telemetry import TelemetryService
-from backend.db.session import AsyncSessionLocal
-from backend.api.v1.schemas.telemetry import TelemetryIngestRequest
+from config.settings import settings
+from services.telemetry import TelemetryService
+from db.session import AsyncSessionLocal
+from api.v1.schemas.telemetry import TelemetryIngestRequest
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class MQTTClientWrapper:
                 logger.error(f"Error processing MQTT message for car {car_id}: {e}")
 
     async def _broadcast_to_websocket(self, car_id: uuid.UUID, data: dict) -> None:
-        from backend.services.websocket_manager import manager
+        from services.websocket_manager import manager
 
         message = {
             "type": "telemetry",
@@ -122,7 +122,7 @@ class MQTTClientWrapper:
             return self._car_org_cache[car_id]
 
         from sqlalchemy import select
-        from backend.domain.models import Car
+        from domain.models import Car
 
         async with AsyncSessionLocal() as session:
             result = await session.execute(
@@ -181,7 +181,7 @@ class MQTTClientWrapper:
 
         try:
             # gmqtt uses synchronous connect with callbacks
-            self._client.connect(host, port, keepalive=60)
+            await self._client.connect(host, port, keepalive=60)
             await asyncio.wait_for(self._connected_event.wait(), timeout=10.0)
             self._subscribe_topics()
         except asyncio.TimeoutError:
@@ -228,7 +228,11 @@ class MQTTClientWrapper:
 
         if self._client:
             try:
-                self._client.disconnect()
+                disconnect = self._client.disconnect
+                if disconnect and callable(disconnect):
+                    result = disconnect()
+                    if result and hasattr(result, '__await__'):
+                        await result
             except Exception:
                 pass
             self._client = None

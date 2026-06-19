@@ -11,7 +11,7 @@ import httpx
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.domain.models import WebhookConfiguration
+from domain.models import WebhookConfiguration
 
 logger = logging.getLogger(__name__)
 

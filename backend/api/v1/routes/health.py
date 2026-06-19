@@ -7,10 +7,10 @@ import httpx
 import redis.asyncio as aioredis
 import time
 
-from ...config.settings import settings
-from ...db.session import AsyncSessionLocal
-from ...api.v1.schemas.health import HealthResponse
-from ...services.llm_client import get_llm_client
+from config.settings import settings
+from db.session import AsyncSessionLocal
+from api.v1.schemas.health import HealthResponse
+from services.llm_client import get_llm_client
 
 router = APIRouter(prefix="/api/v1/health", tags=["health"])
 
