@@ -4,12 +4,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, ActivityIndicator, StyleSheet, AppState, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuthStore } from './src/store';
 import api from './src/services/api';
 import MQTTPublisher from './src/services/MQTTPublisher';
 import AlertWebSocket from './src/services/AlertWebSocket';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -55,7 +56,7 @@ function DashboardTabs() {
   );
 }
 
-export default function App() {
+function AppInner() {
   const { isAuthenticated, checkAuth, user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const insets = useSafeAreaInsets();
@@ -113,6 +114,16 @@ export default function App() {
         </Stack.Navigator>
       </NavigationContainer>
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        <AppInner />
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }
 

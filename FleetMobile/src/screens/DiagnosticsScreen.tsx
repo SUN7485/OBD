@@ -87,7 +87,7 @@ export default function DiagnosticsScreen() {
   const explainDTC = useCallback(async (code: string) => {
     setLoading(true);
     try {
-      const response = await api.explainDTC(code);
+      const response = await api.explainDTC([code]);
       setAiResponse(response.message);
     } catch (error) {
       setAiResponse('Unable to get explanation. Please check connection.');

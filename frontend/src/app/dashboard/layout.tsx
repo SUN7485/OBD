@@ -40,18 +40,17 @@ export default function DashboardLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, logout } = useAuthStore()
+  const { user, logout, isAuthenticated } = useAuthStore()
   const { unreadCount } = useAlertStore()
 
   // Connect WebSocket
   useWebSocket()
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
+    if (!isAuthenticated) {
       router.push('/login')
     }
-  }, [router])
+  }, [isAuthenticated, router])
 
   const handleLogout = () => {
     logout()

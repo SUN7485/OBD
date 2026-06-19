@@ -110,7 +110,7 @@ class FleetAPI {
     );
   }
 
-  static getHost(): string {
+  getHost(): string {
     return API_BASE_URL.replace(/^https?/, 'ws');
   }
 
@@ -191,47 +191,47 @@ class FleetAPI {
     await this.client.post('/telemetry/ingest', payload);
   }
 
-  async getTelemetryHistory(carId: string, startTime?: string, endTime?: string): Promise<TelemetryPayload[]> {
+  async getTelemetryHistory(carId: string, start?: string, end?: string): Promise<TelemetryPayload[]> {
     const params: Record<string, string> = { car_id: carId };
-    if (startTime) params.start_time = startTime;
-    if (endTime) params.end_time = endTime;
+    if (start) params.start = start;
+    if (end) params.end = end;
     const { data } = await this.client.get<{ data: TelemetryPayload[] }>('/telemetry/history', { params });
     return data.data;
   }
 
   async getCars(): Promise<Car[]> {
-    const { data } = await this.client.get<{ data: Car[] }>('/fleet/cars');
-    return data.data;
+    const { data } = await this.client.get<{ cars: Car[] }>('/telemetry/cars');
+    return data.cars;
   }
 
   async createCar(car: Partial<Car>): Promise<Car> {
-    const { data } = await this.client.post<{ data: Car }>('/fleet/cars', car);
-    return data.data;
+    const { data } = await this.client.post<{ car: Car }>('/cars', car);
+    return data.car;
   }
 
   async updateCar(id: string, car: Partial<Car>): Promise<Car> {
-    const { data } = await this.client.put<{ data: Car }>(`/fleet/cars/${id}`, car);
-    return data.data;
+    const { data } = await this.client.put<{ car: Car }>(`/cars/${id}`, car);
+    return data.car;
   }
 
   async deleteCar(id: string): Promise<void> {
-    await this.client.delete(`/fleet/cars/${id}`);
+    await this.client.delete(`/cars/${id}`);
   }
 
   async getAlerts(carId?: string, severity?: string): Promise<Alert[]> {
     const params: Record<string, string> = {};
     if (carId) params.car_id = carId;
     if (severity) params.severity = severity;
-    const { data } = await this.client.get<{ data: Alert[] }>('/alerts', { params });
-    return data.data;
+    const { data } = await this.client.get<{ alerts: Alert[] }>('/alerts', { params });
+    return data.alerts;
   }
 
   async markAlertRead(id: string): Promise<void> {
-    await this.client.patch(`/alerts/${id}/read`);
+    await this.client.post(`/alerts/${id}/read`);
   }
 
   async resolveAlert(id: string): Promise<void> {
-    await this.client.patch(`/alerts/${id}/resolve`);
+    await this.client.post(`/alerts/${id}/resolve`);
   }
 
   async chatWithAI(request: AIRequest): Promise<AIResponse> {
@@ -239,8 +239,8 @@ class FleetAPI {
     return data;
   }
 
-  async explainDTC(code: string, carId?: string): Promise<AIResponse> {
-    const { data } = await this.client.post<AIResponse>('/ai/dtc-explain', { code, car_id: carId });
+  async explainDTC(dtc_codes: string[], carId?: string): Promise<AIResponse> {
+    const { data } = await this.client.post<AIResponse>('/ai/dtc/explain', { car_id: carId, dtc_codes });
     return data;
   }
 }

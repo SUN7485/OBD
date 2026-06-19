@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Platform, PermissionsAndroid, AppState } from 'react-native';
-import { BleManager, Device, Subscription } from 'react-native-ble-plx';
+import { Device, Subscription } from 'react-native-ble-plx';
 import { useOBDStore } from '../store';
+import OBDManager from '../services/OBDManager';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import * as SecureStore from 'expo-secure-store';
 
@@ -11,7 +12,7 @@ const CAR_ID_KEY = 'selected_car_id';
 export default function BLEConnectScreen() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [manager] = useState(() => new BleManager());
+  const manager = OBDManager.getManager();
   const [scanSubscription, setScanSubscription] = useState<Subscription | null>(null);
   const [appState, setAppState] = useState(AppState.currentState);
   const { setConnected, setDisconnected, isConnected } = useOBDStore();
@@ -43,9 +44,6 @@ export default function BLEConnectScreen() {
     requestPermissions();
 
     const handleAppStateChange = (nextState: string) => {
-      if (appState.match(/inactive|background/) && nextState === 'active') {
-        manager.onDeviceConnected(() => {});
-      }
       setAppState(nextState);
     };
 

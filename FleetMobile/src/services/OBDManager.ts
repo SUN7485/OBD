@@ -75,7 +75,7 @@ class OBDManager {
           if (char.isWritableWithResponse || char.isWritableWithoutResponse) {
             this.writeCharId = char.uuid;
           }
-          if (char.isReadable || char.hasIndications || char.hasNotifications) {
+          if (char.isReadable || char.isNotifying) {
             this.readCharId = char.uuid;
           }
           if (char.uuid.toLowerCase().includes('fff1') || char.uuid.toLowerCase().includes('fff2')) {
@@ -85,13 +85,15 @@ class OBDManager {
       }
 
       if (!found && !this.writeCharId) {
-        const allChars = await connectedDevice.characteristics();
-        for (const char of allChars) {
-          if (char.isWritableWithResponse || char.isWritableWithoutResponse) {
-            this.writeCharId = char.uuid;
-          }
-          if (char.isReadable || char.hasIndications || char.hasNotifications) {
-            this.readCharId = char.uuid;
+        for (const svc of services) {
+          const chars = await connectedDevice.characteristicsForService(svc.uuid);
+          for (const char of chars) {
+            if (char.isWritableWithResponse || char.isWritableWithoutResponse) {
+              this.writeCharId = char.uuid;
+            }
+            if (char.isReadable || char.isNotifying) {
+              this.readCharId = char.uuid;
+            }
           }
         }
       }
@@ -101,7 +103,7 @@ class OBDManager {
       this.responseBuffer = '';
 
       if (this.readCharId) {
-        this.manager.monitorCharacteristicForService(
+        this.device.monitorCharacteristicForService(
           OBD_SERVICE_UUID,
           this.readCharId,
           (error, characteristic) => {

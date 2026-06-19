@@ -1,8 +1,13 @@
 import logging
+import signal
+import sys
+import asyncio
+from contextlib import asynccontextmanager
+from typing import Callable, Awaitable
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
 
 from config.settings import settings
 from api.v1.routes import auth as auth_routes
@@ -16,17 +21,29 @@ from api.v1.routes import ai as ai_routes
 from api.v1.routes import fleet as fleet_routes
 from api.v1.routes import batch as batch_routes
 
-# Configure logging
-from config.logging_config import setup_logging
+# Structured logging
+from utils.structured_logging import setup_structured_logging
 
-setup_logging()
+setup_structured_logging(level=logging.INFO, json_output=(settings.ENVIRONMENT == "prod"))
 
 logger = logging.getLogger(__name__)
 
 
+shutdown_event = asyncio.Event()
+
+
+def _handle_sigterm(signum, frame):
+    logger.info("SIGTERM received, initiating graceful shutdown")
+    shutdown_event.set()
+
+
+signal.signal(signal.SIGTERM, _handle_sigterm)
+signal.signal(signal.SIGINT, _handle_sigterm)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logging.info("Fleet OBD Platform starting up...")
+    logger.info("Fleet OBD Platform starting up...")
 
     # Startup: check DB connection
     try:
@@ -35,65 +52,68 @@ async def lifespan(app: FastAPI):
 
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
-        logging.info("Database connection verified")
+        logger.info("Database connection verified")
     except Exception as e:
-        logging.error(f"Database connection failed: {e}")
+        logger.error(f"Database connection failed: {e}")
 
     # Start Redis client
     try:
         from services.redis_client import redis_client
 
         await redis_client.connect()
-        logging.info("Redis client connected")
+        logger.info("Redis client connected")
     except Exception as e:
-        logging.error(f"Redis connection failed: {e}")
+        logger.error(f"Redis connection failed: {e}")
 
     # Start WebSocket manager
     try:
         from services.websocket_manager import manager
 
         await manager.start()
-        logging.info("WebSocket manager started")
+        logger.info("WebSocket manager started")
     except Exception as e:
-        logging.error(f"WebSocket manager start failed: {e}")
+        logger.error(f"WebSocket manager start failed: {e}")
 
     # Start MQTT client
     try:
         from services.mqtt_client import mqtt_client
 
         await mqtt_client.connect()
-        logging.info("MQTT client connected")
+        logger.info("MQTT client connected")
     except Exception as e:
-        logging.error(f"MQTT client connection failed: {e}")
+        logger.error(f"MQTT client connection failed: {e}")
 
-    yield
-
-    # Shutdown
-    logging.info("Fleet OBD Platform shutting down...")
-
-    # Stop MQTT client
     try:
-        from services.mqtt_client import mqtt_client
+        yield
+    finally:
+        if shutdown_event.is_set():
+            logger.info("Shutdown signal received, cleaning up...")
 
-        await mqtt_client.disconnect()
-    except Exception as e:
-        logger.error(f"MQTT client disconnect error: {e}")
+        # Stop MQTT client
+        try:
+            from services.mqtt_client import mqtt_client
 
-    # Stop WebSocket manager
-    try:
-        from services.websocket_manager import manager
+            await mqtt_client.disconnect()
+        except Exception as e:
+            logger.error(f"MQTT client disconnect error: {e}")
 
-        await manager.stop()
-    except Exception as e:
-        logger.error(f"WebSocket manager stop error: {e}")
+        # Stop WebSocket manager
+        try:
+            from services.websocket_manager import manager
 
-    # Disconnect Redis
-    try:
-        from services.redis_client import redis_client
+            await manager.stop()
+        except Exception as e:
+            logger.error(f"WebSocket manager stop error: {e}")
 
-        await redis_client.disconnect()
-    except Exception as e:
-        logger.error(f"Redis disconnect error: {e}")
+        # Disconnect Redis
+        try:
+            from services.redis_client import redis_client
+
+            await redis_client.disconnect()
+        except Exception as e:
+            logger.error(f"Redis disconnect error: {e}")
+
+        logger.info("Fleet OBD Platform shutdown complete")
 
 
 app = FastAPI(
@@ -104,19 +124,24 @@ app = FastAPI(
 )
 
 # Rate limiting
-from slowapi.errors import RateLimitExceeded
-from middleware.rate_limiter import limiter, rate_limit_exceeded_handler
-app.state.limiter = limiter
-
-# Add slowapi middleware
 try:
+    from slowapi.errors import RateLimitExceeded
     from slowapi.middleware import SlowAPIMiddleware
+    from middleware.rate_limiter import limiter, rate_limit_exceeded_handler
 
+    app.state.limiter = limiter
     app.add_middleware(SlowAPIMiddleware)
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 except ImportError:
     pass
 
-app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+# Correlation ID middleware (before rate limiting so it captures all requests)
+from utils.correlation import CorrelationMiddleware
+app.add_middleware(CorrelationMiddleware)
+
+# RLS middleware
+from middleware.rls import RLSMiddleware
+app.add_middleware(RLSMiddleware)
 
 # Prometheus metrics (exposed via protected endpoint in health_routes)
 try:
