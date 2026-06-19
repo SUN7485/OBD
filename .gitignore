@@ -42,6 +42,19 @@ backend/.env.*
 .env.production
 .env.development
 
+OBD/
+FleetMobile/gradle-cache/
+nul
+~/
+test_login_*.py
+test_pages_survey.py
+patch_backend.py
+token.js
+testdata.json
+test-output/
+frontend/serve_login.py
+frontend/tests/
+
 # Build artifacts
 dist/
 build/
