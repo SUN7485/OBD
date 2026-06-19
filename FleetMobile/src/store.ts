@@ -123,4 +123,4 @@ export const useAlertStore = create<AlertState>()((set) => ({
     alerts: [alert, ...state.alerts],
     unreadCount: state.unreadCount + 1
   })),
-));
+}));
