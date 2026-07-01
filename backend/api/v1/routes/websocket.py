@@ -11,7 +11,7 @@ from config.settings import settings
 from services.auth import decode_token
 from services.websocket_manager import manager
 from services.redis_client import redis_client
-from db.session import get_db
+from db.session import session_manager
 from domain.models import User, Car
 
 logger = logging.getLogger(__name__)
@@ -132,59 +132,57 @@ async def websocket_endpoint(
     - {"type": "ai_reply", "data": {...}} - AI response
     - {"type": "pong"} - Response to ping
     """
-    # Get database session
-    async for db_session in get_db():
-        db = db_session
-        break
+    user = None
+    redis_channel = None
     
-    # Authenticate user
-    try:
-        user = await get_user_from_token(token, db)
-    except WebSocketCloseException as e:
-        await websocket.close(code=4004, reason=str(e.close_data))
-        return
-    except Exception as e:
-        logger.error(f"Auth error: {e}")
-        await websocket.close(code=4004, reason='{"code": 4001, "message": "Authentication failed"}')
-        return
-
-    # Get accessible car IDs
-    try:
-        car_ids = await get_user_car_ids(user, db)
-    except Exception as e:
-        logger.error(f"Error getting car IDs: {e}")
-        car_ids = []
-
-    # Connect to manager
-    try:
-        metadata = await manager.connect(
-            websocket=websocket,
-            user_id=user.id,
-            organization_id=user.organization_id,
-            role=user.role.value,
-            car_ids=car_ids
-        )
-    except Exception as e:
-        logger.error(f"Connection error: {e}")
-        await websocket.close(code=4004, reason='{"code": 4002, "message": "Connection failed"}')
-        return
-
-    # Setup Redis subscription for this user's messages
-    redis_channel = f"ws:user:{user.id}"
-
-    async def redis_handler(data: dict):
-        """Handle messages from Redis."""
+    async with session_manager() as db:
+        # Authenticate user
         try:
-            await websocket.send_json(data)
+            user = await get_user_from_token(token, db)
+        except WebSocketCloseException as e:
+            await websocket.close(code=4004, reason=str(e.close_data))
+            return
         except Exception as e:
-            logger.error(f"Error sending Redis message: {e}")
+            logger.error(f"Auth error: {e}")
+            await websocket.close(code=4004, reason='{"code": 4001, "message": "Authentication failed"}')
+            return
 
-    try:
-        await redis_client.subscribe(redis_channel, redis_handler)
-    except Exception as e:
-        logger.error(f"Redis subscription error: {e}")
+        # Get accessible car IDs
+        try:
+            car_ids = await get_user_car_ids(user, db)
+        except Exception as e:
+            logger.error(f"Error getting car IDs: {e}")
+            car_ids = []
 
-    # Message handling loop
+        # Connect to manager
+        try:
+            metadata = await manager.connect(
+                websocket=websocket,
+                user_id=user.id,
+                organization_id=user.organization_id,
+                role=user.role.value,
+                car_ids=car_ids
+            )
+            redis_channel = f"ws:user:{user.id}"
+        except Exception as e:
+            logger.error(f"Connection error: {e}")
+            await websocket.close(code=4004, reason='{"code": 4002, "message": "Connection failed"}')
+            return
+
+        # Setup Redis subscription for this user's messages
+        async def redis_handler(data: dict):
+            """Handle messages from Redis."""
+            try:
+                await websocket.send_json(data)
+            except Exception as e:
+                logger.error(f"Error sending Redis message: {e}")
+
+        try:
+            await redis_client.subscribe(redis_channel, redis_handler)
+        except Exception as e:
+            logger.error(f"Redis subscription error: {e}")
+
+    # Message handling loop (outside db session to avoid long-held connections)
     try:
         while True:
             data = await websocket.receive_json()
@@ -195,8 +193,10 @@ async def websocket_endpoint(
         logger.error(f"WebSocket error: {e}")
     finally:
         # Cleanup
-        try:
-            await redis_client.unsubscribe(redis_channel)
-        except Exception:
-            pass
-        await manager.disconnect(websocket)
+        if redis_channel:
+            try:
+                await redis_client.unsubscribe(redis_channel)
+            except Exception:
+                pass
+        if user:
+            await manager.disconnect(websocket)

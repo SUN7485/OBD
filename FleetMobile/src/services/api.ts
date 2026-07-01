@@ -5,7 +5,38 @@
 import axios, { AxiosInstance } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+/**
+ * Server URL management:
+ * - Default from env var (EXPO_PUBLIC_API_URL) for development
+ * - Can be dynamically changed at runtime for remote customers
+ * - Persisted to SecureStore so it survives app restarts
+ */
+const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+let API_BASE_URL: string = DEFAULT_API_URL;
+const CUSTOM_API_URL_KEY = 'custom_api_url';
+
+export async function setCustomApiUrl(url: string): Promise<void> {
+  API_BASE_URL = url;
+  await SecureStore.setItemAsync(CUSTOM_API_URL_KEY, url);
+}
+
+export async function initializeApiUrl(): Promise<void> {
+  try {
+    const stored = await SecureStore.getItemAsync(CUSTOM_API_URL_KEY);
+    if (stored) {
+      API_BASE_URL = stored;
+    }
+  } catch {
+    // Fallback to default
+  }
+}
+
+export function getApiUrl(): string {
+  return API_BASE_URL;
+}
+
+// ---- Type definitions ----
+
 const API_KEY_HEADER = 'X-API-Key';
 
 interface User {
@@ -14,6 +45,7 @@ interface User {
   full_name: string;
   role: string;
   organization_id: string;
+  organization_name: string;
 }
 
 interface LoginResponse {
@@ -70,9 +102,14 @@ interface AIResponse {
 const AUTH_STORAGE_KEY = 'auth_data';
 const MQTT_STORAGE_KEY = 'mqtt_config';
 
+type TokenRefreshListener = (newToken: string) => void;
+
+// ---- Fleet API Client ----
+
 class FleetAPI {
   private client: AxiosInstance;
   private deviceApiKey: string | null = null;
+  private tokenRefreshListeners: TokenRefreshListener[] = [];
 
   constructor() {
     this.client = axios.create({
@@ -110,12 +147,26 @@ class FleetAPI {
     );
   }
 
+  /**
+   * Update the base URL when server URL changes at runtime.
+   */
+  updateBaseUrl(url: string): void {
+    this.client.defaults.baseURL = `${url}/api/v1`;
+  }
+
   getHost(): string {
     return API_BASE_URL.replace(/^https?/, 'ws');
   }
 
-  setDeviceApiKey(key: string) {
+  setDeviceApiKey(key: string): void {
     this.deviceApiKey = key;
+  }
+
+  addTokenRefreshListener(listener: TokenRefreshListener): () => void {
+    this.tokenRefreshListeners.push(listener);
+    return () => {
+      this.tokenRefreshListeners = this.tokenRefreshListeners.filter(l => l !== listener);
+    };
   }
 
   async login(email: string, password: string): Promise<LoginResponse> {
@@ -153,6 +204,11 @@ class FleetAPI {
         refreshToken: data.refresh_token,
         user: data.user,
       }));
+
+      for (const listener of this.tokenRefreshListeners) {
+        try { listener(data.access_token); } catch (e) { console.error('Token refresh listener error:', e); }
+      }
+
       return true;
     } catch {
       return false;

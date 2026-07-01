@@ -26,15 +26,29 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "de5d057f-66ba-4ad5-807a-14804553c828"
-      }
-    },
-    "owner": "sun74s-team",
     "plugins": [
       "expo-secure-store",
-      "expo-status-bar"
-    ]
+      "expo-status-bar",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "cmake": {
+              "version": "3.22.1"
+            },
+            "ndk": {
+              "version": "25.1.8937393"
+            }
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "67a6c0f3-155d-40c0-9000-baa03e0eb00c"
+      }
+    },
+    "owner": "sun74"
   }
 }

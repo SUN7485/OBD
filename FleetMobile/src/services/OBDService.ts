@@ -120,20 +120,21 @@ export function parseDTCResponse(response: string): string[] {
   
   const dataStart = 2;
   for (let i = dataStart; i < cleaned.length - 3; i += 4) {
-    const byte = cleaned.substr(i, 2);
-    if (byte === '00') continue;
-    
-    const firstChar = byte.charAt(0);
+    const byte1 = cleaned.substr(i, 2);
+    const byte2 = cleaned.substr(i + 2, 2);
+    if (byte1 === '00' && byte2 === '00') continue;
+
+    const dtcWord = parseInt(byte1 + byte2, 16);
+    if (dtcWord === 0) continue;
+
+    const systemCode = (dtcWord >> 14) & 0x03;
     let prefix = 'P';
-    if (firstChar >= '4' && firstChar <= '7') prefix = 'C';
-    else if (firstChar >= '8' && firstChar <= '9') prefix = 'B';
-    else if (firstChar >= 'A' && firstChar <= 'C') prefix = 'P';
-    else if (firstChar >= 'D' && firstChar <= 'F') prefix = 'P';
-    
-    const dtcNum = parseInt(byte, 16);
-    if (dtcNum > 0) {
-      codes.push(`${prefix}${dtcNum.toString(16).toUpperCase().padStart(4, '0')}`);
-    }
+    if (systemCode === 1) prefix = 'C';
+    else if (systemCode === 2) prefix = 'B';
+    else if (systemCode === 3) prefix = 'U';
+
+    const dtcNum = dtcWord & 0x3FFF;
+    codes.push(`${prefix}${dtcNum.toString(16).toUpperCase().padStart(4, '0')}`);
   }
   
   return codes;

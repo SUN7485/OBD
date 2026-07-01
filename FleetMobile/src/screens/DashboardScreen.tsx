@@ -45,8 +45,8 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   const metrics: Metric[] = [
     { id: 'speed', label: 'Speed', value: telemetry?.speed?.toFixed(0) ?? 0, unit: 'km/h', icon: 'speedometer' },
     { id: 'rpm', label: 'RPM', value: telemetry?.rpm?.toFixed(0) ?? 0, unit: '', icon: 'engine' },
-    { id: 'fuel', label: 'Fuel', value: telemetry?.fuel_level?.toFixed(0) ?? 0, unit: '%', icon: 'gas-station' },
-    { id: 'temp', label: 'Temp', value: telemetry?.coolant_temp?.toFixed(0) ?? 0, unit: '°C', icon: 'thermometer' },
+    { id: 'fuel', label: 'Fuel', value: telemetry?.fuelLevel?.toFixed(0) ?? 0, unit: '%', icon: 'gas-station' },
+    { id: 'temp', label: 'Temp', value: telemetry?.coolantTemp?.toFixed(0) ?? 0, unit: '°C', icon: 'thermometer' },
   ];
 
   const renderMetric = useCallback(({ item }: { item: Metric }) => (

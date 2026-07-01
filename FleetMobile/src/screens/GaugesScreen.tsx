@@ -66,7 +66,7 @@ export default function GaugesScreen() {
     {
       id: 'engineLoad',
       name: 'Engine Load',
-      value: telemetry?.engine_load ?? 0,
+      value: telemetry?.engineLoad ?? 0,
       max: 100,
       unit: '%',
       color: '#faad14',
@@ -82,7 +82,7 @@ export default function GaugesScreen() {
     {
       id: 'coolantTemp',
       name: 'Coolant Temp',
-      value: telemetry?.coolant_temp ?? 0,
+      value: telemetry?.coolantTemp ?? 0,
       max: 150,
       unit: '°C',
       color: '#ff4d4f',
@@ -90,7 +90,7 @@ export default function GaugesScreen() {
     {
       id: 'fuelLevel',
       name: 'Fuel Level',
-      value: telemetry?.fuel_level ?? 0,
+      value: telemetry?.fuelLevel ?? 0,
       max: 100,
       unit: '%',
       color: '#13c2c2',

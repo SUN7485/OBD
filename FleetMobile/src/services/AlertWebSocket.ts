@@ -3,6 +3,7 @@
  */
 
 import { Alert } from 'react-native';
+import api from './api';
 
 interface AlertPayload {
   severity: 'info' | 'warning' | 'critical';
@@ -42,11 +43,7 @@ class WebSocketAlertService {
     Alert.alert(
       data.severity.toUpperCase(),
       data.message,
-      [{ text: 'OK', style: 'default' }],
-      {
-        title: data.severity.toUpperCase(),
-        message: data.message,
-      }
+      [{ text: 'OK', style: 'default' }]
     );
   }
 
@@ -65,13 +62,32 @@ class WebSocketAlertService {
     }, delay);
   }
 
-  connect(apiUrl: string = 'http://localhost:8000'): boolean {
+  constructor() {
+    api.addTokenRefreshListener((newToken: string) => {
+      this.setToken(newToken);
+      const currentHost = this.getCurrentHost();
+      if (currentHost) {
+        this.disconnect();
+        this.connect(currentHost);
+      }
+    });
+  }
+
+  private lastHost: string | null = null;
+
+  private getCurrentHost(): string | null {
+    return this.lastHost;
+  }
+
+  connect(apiUrl: string = 'ws://localhost:8000'): boolean {
     if (!this.token) {
       console.warn('No auth token set, cannot connect to WebSocket');
       return false;
     }
 
-    const wsUrl = apiUrl.replace(/^http/, 'ws') + `/api/v1/ws?token=${this.token}`;
+    const fullApiUrl = apiUrl.startsWith('http') ? apiUrl.replace(/^http/, 'ws') : apiUrl;
+    this.lastHost = fullApiUrl;
+    const wsUrl = `${fullApiUrl}/api/v1/ws?token=${this.token}`;
 
     try {
       this.ws = new WebSocket(wsUrl);

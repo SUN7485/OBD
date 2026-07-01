@@ -1,5 +1,7 @@
 # Expo
 .expo/
+# Also ensure common Expo directories are ignored
+.expo-shared/
 
 # OSX
 #

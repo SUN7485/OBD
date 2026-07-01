@@ -34,6 +34,7 @@ interface FleetSummary {
   total_cars: number
   active_cars: number
   total_distance_km: number
+  total_fuel_consumed_l?: number
   total_fuel_l: number
   alerts_by_severity: { info: number; warning: number; critical: number }
   hourly_activity?: { hour: string; avg_speed: number; avg_rpm: number }[]

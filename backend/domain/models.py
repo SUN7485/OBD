@@ -312,6 +312,7 @@ class OBDData(Base):
     dtc_codes: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String), nullable=True)
     mil_status: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     raw_data: Mapped[Any] = mapped_column(JSONB, default=dict)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
 
 
 class OBDDataHourly(Base):
@@ -473,7 +474,7 @@ class Geofence(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     geofence_type: Mapped[GeofenceType] = mapped_column(
-        Enum(GeofenceType), nullable=False
+        Enum(GeofenceType, native_enum=False), nullable=False
     )
 
     # GeoJSON polygon or point + radius
@@ -547,10 +548,10 @@ class MaintenanceSchedule(Base):
         UUID(as_uuid=True), ForeignKey("cars.id", ondelete="CASCADE"), nullable=False
     )
     maintenance_type: Mapped[MaintenanceType] = mapped_column(
-        Enum(MaintenanceType), nullable=False
+        Enum(MaintenanceType, native_enum=False), nullable=False
     )
     status: Mapped[MaintenanceStatus] = mapped_column(
-        Enum(MaintenanceStatus), default=MaintenanceStatus.scheduled
+        Enum(MaintenanceStatus, native_enum=False), default=MaintenanceStatus.scheduled
     )
 
     scheduled_date: Mapped[datetime] = mapped_column(
@@ -592,7 +593,7 @@ class MaintenancePrediction(Base):
     )
 
     maintenance_type: Mapped[MaintenanceType] = mapped_column(
-        Enum(MaintenanceType), nullable=False
+        Enum(MaintenanceType, native_enum=False), nullable=False
     )
     predicted_days_until_failure: Mapped[int] = mapped_column(Integer, nullable=False)
     confidence_score: Mapped[float] = mapped_column(Float, nullable=False)  # 0-1
@@ -671,7 +672,7 @@ class FuelAnomaly(Base):
         UUID(as_uuid=True), ForeignKey("cars.id", ondelete="CASCADE"), nullable=False
     )
 
-    anomaly_type: Mapped[AnomalyType] = mapped_column(Enum(AnomalyType), nullable=False)
+    anomaly_type: Mapped[AnomalyType] = mapped_column(Enum(AnomalyType, native_enum=False), nullable=False)
     severity: Mapped[AlertSeverity] = mapped_column(Enum(AlertSeverity), nullable=False)
 
     detected_at: Mapped[datetime] = mapped_column(

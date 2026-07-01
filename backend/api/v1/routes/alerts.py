@@ -31,7 +31,7 @@ class AlertResponse(BaseModel):
     resolved_at: Optional[str]
     resolved_by: Optional[str]
     created_at: str
-    metadata: dict
+    metadata: Optional[dict] = None
 
     class Config:
         from_attributes = True

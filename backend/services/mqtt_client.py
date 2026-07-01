@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import Optional, Any
 from urllib.parse import urlparse
 
@@ -11,7 +12,8 @@ from gmqtt import Client as MQTTClient
 from config.settings import settings
 from services.telemetry import TelemetryService
 from db.session import AsyncSessionLocal
-from api.v1.schemas.telemetry import TelemetryIngestRequest
+from services.redis_client import redis_client
+from domain.models import OBDData
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,19 @@ class MQTTClientWrapper:
     def _on_disconnect(self, client: MQTTClient, packet: Any, exc: Optional[Exception] = None) -> None:
         logger.warning(f"MQTT disconnected: {exc}")
         self._connected_event.clear()
-        if self._reconnect_task is None or self._reconnect_task.done():
+        if self._reconnect_task is not None and not self._reconnect_task.done():
+            self._reconnect_task.cancel()
+            try:
+                # await cancelled task to let it cleanup; ignore CancelledError
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Already in running loop (gmqtt callback may run in event loop thread)
+                    self._reconnect_task = asyncio.ensure_future(self._reconnect_loop())
+                else:
+                    self._reconnect_task = asyncio.create_task(self._reconnect_loop())
+            except Exception:
+                self._reconnect_task = asyncio.create_task(self._reconnect_loop())
+        else:
             self._reconnect_task = asyncio.create_task(self._reconnect_loop())
 
     async def _on_message(
@@ -70,33 +84,32 @@ class MQTTClientWrapper:
             logger.warning(f"Car {car_id} not found or has no organization")
             return
 
+        if not data.get("source_message_id"):
+            data["source_message_id"] = OBDData.make_message_id(
+                car_id=car_id,
+                time=datetime.fromisoformat(data["time"]) if data.get("time") else datetime.now(timezone.utc),
+            )
+
+        seen_key = data["source_message_id"]
+        cache_key = f"mqtt:msg:{car_id}:{seen_key}"
+        if settings.ENVIRONMENT != "testing":
+            try:
+                already_known = await redis_client.set(cache_key, "1", ex=3600, nx=True) != True
+            except Exception as e:
+                logger.debug("Dedup check failed, continuing without dedup: %s", e)
+                already_known = False
+            if already_known:
+                logger.debug("Duplicate MQTT message dropped: %s", cache_key)
+                return
+
         async with AsyncSessionLocal() as session:
             service = TelemetryService(session)
             try:
-                telemetry_data = TelemetryIngestRequest(
-                    car_id=car_id,
-                    time=data.get("time"),
-                    rpm=data.get("rpm"),
-                    speed=data.get("speed"),
-                    throttle_position=data.get("throttle_position"),
-                    engine_load=data.get("engine_load"),
-                    coolant_temp=data.get("coolant_temp"),
-                    intake_temp=data.get("intake_temp"),
-                    fuel_level=data.get("fuel_level"),
-                    fuel_rate=data.get("fuel_rate"),
-                    fuel_pressure=data.get("fuel_pressure"),
-                    maf_rate=data.get("maf_rate"),
-                    o2_voltage=data.get("o2_voltage"),
-                    latitude=data.get("latitude"),
-                    longitude=data.get("longitude"),
-                    dtc_codes=data.get("dtc_codes"),
-                    mil_status=data.get("mil_status"),
-                    raw_data=data,
-                )
-                await service.ingest_telemetry(telemetry_data, org_id)
+                await service.ingest_mqtt_reading(car_id, org_id, data)
                 await self._broadcast_to_websocket(car_id, data)
             except Exception as e:
                 logger.error(f"Error processing MQTT message for car {car_id}: {e}")
+                raise
 
     async def _broadcast_to_websocket(self, car_id: uuid.UUID, data: dict) -> None:
         from services.websocket_manager import manager

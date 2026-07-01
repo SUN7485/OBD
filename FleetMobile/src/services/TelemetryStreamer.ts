@@ -5,8 +5,9 @@
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import OBDManager, { TelemetryData } from './OBDManager';
 import MQTTPublisher from './MQTTPublisher';
-import OfflineQueue from './OfflineQueue';
+import OfflineQueue, { type QueuedTelemetry } from './OfflineQueue';
 import LocationService from './LocationService';
+import { useOBDStore } from '../store';
 
 const INTERVAL_WIFI = 1000;
 const INTERVAL_CELLULAR = 5000;
@@ -20,10 +21,10 @@ class TelemetryStreamer {
   private netInfoListener: (() => void) | null = null;
 
   constructor() {
-    this.setupNetworkListener();
   }
 
   private setupNetworkListener(): void {
+    if (this.netInfoListener) return;
     this.netInfoListener = NetInfo.addEventListener(this.handleNetChange.bind(this));
   }
 
@@ -52,13 +53,14 @@ class TelemetryStreamer {
   async start(): Promise<void> {
     if (this.isRunning) return;
 
+    this.setupNetworkListener();
     this.isRunning = true;
-    await OfflineQueue.load();
-    await this.drainOfflineQueue();
+    OfflineQueue.load();
     this.startPolling();
     LocationService.startTracking((loc) => {
       console.log('Location update:', loc);
     });
+    this.drainOfflineQueue();
   }
 
   stop(): void {
@@ -99,15 +101,25 @@ class TelemetryStreamer {
       longitude: location?.longitude,
     };
 
+    useOBDStore.getState().updateTelemetry(obdData);
+
     if (MQTTPublisher.isReady()) {
       MQTTPublisher.publishTelemetry(payload);
     } else {
       OfflineQueue.enqueue({
-        ...payload,
         car_id: this.carId,
+        speed: obdData.speed,
+        rpm: obdData.rpm,
+        coolantTemp: obdData.coolantTemp,
+        engineLoad: obdData.engineLoad,
+        throttle: obdData.throttle,
+        fuelLevel: obdData.fuelLevel,
+        intakeAirTemp: obdData.intakeAirTemp,
+        mafAirFlow: obdData.mafAirFlow,
+        dtcCodes: obdData.dtcCodes,
         timestamp: new Date().toISOString(),
-      });
-      await this.drainOfflineQueue();
+      } as QueuedTelemetry);
+      this.drainOfflineQueue();
     }
   }
 
@@ -118,11 +130,10 @@ class TelemetryStreamer {
     console.log(`Processing ${queued.length} offline telemetry records...`);
 
     for (const payload of queued) {
+      if (!MQTTPublisher.isReady()) break;
       try {
-        if (MQTTPublisher.isReady()) {
-          MQTTPublisher.publishTelemetry(payload as TelemetryData);
-          await OfflineQueue.dequeue();
-        }
+        MQTTPublisher.publishTelemetry(payload as TelemetryData);
+        await OfflineQueue.dequeue();
       } catch (error) {
         console.error('Failed to process queued telemetry:', error);
         break;

@@ -46,7 +46,20 @@ export default function DriversPage() {
     try {
       setLoading(true)
       const response = await fleetAPI.driverLeaderboard(20)
-      setDrivers(response.data || [])
+      const rawData = response.data?.leaderboard || response.data || []
+      const mappedData = rawData.map((d: any) => ({
+        car_id: d.driver?.id || d.car_id || d.rank,
+        car_name: d.driver?.name || d.car_name || `Driver ${d.rank}`,
+        safety_score: d.safety_score || 80,
+        efficiency_score: d.efficiency_score || 80,
+        total_distance_km: d.total_distance_km || 0,
+        total_trips: d.total_trips || 0,
+        harsh_braking_count: d.harsh_braking_count || 0,
+        harsh_acceleration_count: d.harsh_acceleration_count || 0,
+        speeding_count: d.speeding_violations || d.speeding_count || 0,
+        updated_at: new Date().toISOString(),
+      }))
+      setDrivers(mappedData)
     } catch (error) {
       console.error('Failed to load drivers:', error)
       setDrivers([

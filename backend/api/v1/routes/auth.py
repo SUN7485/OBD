@@ -142,6 +142,19 @@ async def refresh(req: RefreshRequest, db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.get("/me", response_model=UserResponse)
+async def me(current_user: User = Depends(get_current_user)):
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role.value
+        if hasattr(current_user.role, "value")
+        else current_user.role,
+        organization_id=current_user.organization_id,
+    )
+
+
 @router.post("/logout")
 async def logout(current_user: User = Depends(get_current_user)):
     # If token blacklist is required, implement with Redis here

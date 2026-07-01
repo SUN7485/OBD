@@ -10,6 +10,7 @@ import uuid
 from fastapi import WebSocket
 
 from services.redis_client import redis_client
+from utils.correlation import get_correlation_id
 
 logger = logging.getLogger(__name__)
 
@@ -193,10 +194,16 @@ class ConnectionManager:
         if room not in self._rooms:
             return 0
 
+        # Enrich message with correlation_id if available
+        correlation_id = get_correlation_id_from_message(message)
+        enriched_message = dict(message)
+        if correlation_id:
+            enriched_message["correlation_id"] = correlation_id
+
         # Also publish to Redis for cross-instance broadcasting
         redis_channel = f"{self._redis_channel_prefix}{room}"
         try:
-            await redis_client.publish(redis_channel, message)
+            await redis_client.publish(redis_channel, enriched_message)
         except Exception as e:
             logger.error(f"Error publishing to Redis: {e}")
 
@@ -205,7 +212,7 @@ class ConnectionManager:
         disconnected = []
 
         for ws in self._rooms[room]:
-            if await self.send_personal_message(message, ws):
+            if await self.send_personal_message(enriched_message, ws):
                 count += 1
             else:
                 disconnected.append(ws)
@@ -321,6 +328,11 @@ class ConnectionManager:
             room = message.get("room")
             if room:
                 await self._leave_room(websocket, room)
+def get_correlation_id_from_message(message: Any) -> Optional[str]:
+    """Extract correlation_id from a message dict if present."""
+    if isinstance(message, dict):
+        return message.get("correlation_id")
+    return None
 
 
 # Global instance

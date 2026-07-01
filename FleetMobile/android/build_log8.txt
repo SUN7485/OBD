@@ -1,0 +1,8 @@
+ 
+WARNING: JAVA_HOME is set to an invalid directory, trying Android Studio JBR 
+Downloading https://services.gradle.org/distributions/gradle-8.11.4-bin.zip
+
+Exception in thread "main" java.io.IOException: Server returned HTTP response code: 404 for URL: https://services.gradle.org/distributions/gradle-8.11.4-bin.zip
+	at org.gradle.wrapper.Install.forceFetch(SourceFile:2)
+	at org.gradle.wrapper.Install$1.call(SourceFile:8)
+	at org.gradle.wrapper.GradleWrapperMain.main(SourceFile:67)

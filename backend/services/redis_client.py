@@ -8,6 +8,7 @@ from redis.exceptions import RedisError
 import logging
 
 from config.settings import settings
+from utils.circuit_breaker import get_redis_breaker, execute_with_circuit_breaker
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +63,18 @@ class RedisClient:
         if self._redis is None:
             await self.connect()
 
-        try:
+        async def _publish():
             serialized = json.dumps(message)
             result = await self._redis.publish(channel, serialized)
             logger.debug(f"Published to {channel}: {message}")
             return result
+
+        try:
+            return await execute_with_circuit_breaker(
+                get_redis_breaker(),
+                _publish,
+                fallback=0,
+            )
         except RedisError as e:
             logger.error(f"Error publishing to {channel}: {e}")
             raise
@@ -134,14 +142,30 @@ class RedisClient:
         """Get a value by key."""
         if self._redis is None:
             await self.connect()
-        return await self._redis.get(key)
+
+        async def _get():
+            return await self._redis.get(key)
+
+        return await execute_with_circuit_breaker(
+            get_redis_breaker(),
+            _get,
+            fallback=None,
+        )
 
     async def set(self, key: str, value: Any, ex: Optional[int] = None) -> bool:
         """Set a key-value pair with optional expiration."""
         if self._redis is None:
             await self.connect()
-        serialized = json.dumps(value) if not isinstance(value, str) else value
-        return await self._redis.set(key, serialized, ex=ex)
+
+        async def _set():
+            serialized = json.dumps(value) if not isinstance(value, str) else value
+            return await self._redis.set(key, serialized, ex=ex)
+
+        return await execute_with_circuit_breaker(
+            get_redis_breaker(),
+            _set,
+            fallback=False,
+        )
 
     async def delete(self, *keys: str) -> int:
         """Delete one or more keys."""

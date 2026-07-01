@@ -1,10 +1,12 @@
 """Telemetry service for OBD data ingestion and retrieval."""
+import hashlib
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional, List, Tuple, Any
 import uuid
 
-from sqlalchemy import select, func, and_, or_, text
+from sqlalchemy import select, func, and_, or_, text, insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +20,32 @@ from api.v1.schemas.telemetry import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _compute_idempotency_key(
+    car_id: uuid.UUID,
+    time: datetime,
+    rpm: Optional[int],
+    speed: Optional[int],
+    throttle: Optional[float],
+    fuel_level: Optional[float],
+    latitude: Optional[float],
+    longitude: Optional[float],
+    raw_data: Optional[dict] = None,
+) -> str:
+    """Compute a stable idempotency key for deduplication."""
+    payload = {
+        "car_id": str(car_id),
+        "time": time.isoformat(),
+        "rpm": rpm,
+        "speed": speed,
+        "throttle": throttle,
+        "fuel_level": fuel_level,
+        "lat": latitude,
+        "lon": longitude,
+    }
+    raw_str = json.dumps(payload, sort_keys=True, default=str)
+    return hashlib.sha256(raw_str.encode()).hexdigest()
 
 
 class TelemetryService:
@@ -42,7 +70,20 @@ class TelemetryService:
         if not car:
             raise ValueError(f"Car {data.car_id} not found or not accessible")
 
-        obd_data = OBDData(
+        idempotency_key = _compute_idempotency_key(
+            car_id=data.car_id,
+            time=data.time,
+            rpm=data.rpm,
+            speed=data.speed,
+            throttle=data.throttle_position,
+            fuel_level=data.fuel_level,
+            latitude=data.latitude,
+            longitude=data.longitude,
+            raw_data=data.raw_data,
+        )
+
+        # Try insert with ON CONFLICT DO NOTHING for idempotency_key
+        stmt = insert(OBDData).values(
             time=data.time,
             car_id=data.car_id,
             organization_id=organization_id,
@@ -62,12 +103,23 @@ class TelemetryService:
             dtc_codes=data.dtc_codes,
             mil_status=data.mil_status,
             raw_data=data.raw_data or {},
+            idempotency_key=idempotency_key,
         )
-        self.db.add(obd_data)
+        stmt = stmt.on_conflict_do_nothing(index_elements=["idempotency_key"])
+        await self.db.execute(stmt)
         await self.db.commit()
-        await self.db.refresh(obd_data)
-        logger.info(f"Ingested telemetry for car {data.car_id} at {obd_data.time}")
-        return obd_data
+
+        # Fetch the record we just inserted (or the existing one if conflict)
+        record = (
+            await self.db.execute(
+                select(OBDData).filter(OBDData.idempotency_key == idempotency_key)
+            )
+        ).scalars().first()
+        if record is None:
+            raise RuntimeError("Failed to retrieve inserted telemetry record")
+
+        logger.info(f"Ingested telemetry for car {data.car_id} at {record.time}")
+        return record
 
     async def ingest_telemetry_batch(
         self,
@@ -79,6 +131,17 @@ class TelemetryService:
 
         values = []
         for item in items:
+            idempotency_key = _compute_idempotency_key(
+                car_id=item.car_id,
+                time=item.time,
+                rpm=item.rpm,
+                speed=item.speed,
+                throttle=item.throttle_position,
+                fuel_level=item.fuel_level,
+                latitude=item.latitude,
+                longitude=item.longitude,
+                raw_data=item.raw_data,
+            )
             values.append(
                 {
                     "time": item.time,
@@ -100,31 +163,12 @@ class TelemetryService:
                     "dtc_codes": item.dtc_codes,
                     "mil_status": item.mil_status,
                     "raw_data": item.raw_data or {},
+                    "idempotency_key": idempotency_key,
                 }
             )
 
         stmt = pg_insert(OBDData).values(values)
-        stmt = stmt.on_conflict_do_update(
-            constraint="uix_obd_data_time_car",
-            set_={
-                "rpm": stmt.excluded.rpm,
-                "speed": stmt.excluded.speed,
-                "throttle_position": stmt.excluded.throttle_position,
-                "engine_load": stmt.excluded.engine_load,
-                "coolant_temp": stmt.excluded.coolant_temp,
-                "intake_temp": stmt.excluded.intake_temp,
-                "fuel_level": stmt.excluded.fuel_level,
-                "fuel_rate": stmt.excluded.fuel_rate,
-                "fuel_pressure": stmt.excluded.fuel_pressure,
-                "maf_rate": stmt.excluded.maf_rate,
-                "o2_voltage": stmt.excluded.o2_voltage,
-                "latitude": stmt.excluded.latitude,
-                "longitude": stmt.excluded.longitude,
-                "dtc_codes": stmt.excluded.dtc_codes,
-                "mil_status": stmt.excluded.mil_status,
-                "raw_data": stmt.excluded.raw_data,
-            },
-        )
+        stmt = stmt.on_conflict_do_nothing(index_elements=["idempotency_key"])
         await self.db.execute(stmt)
         await self.db.commit()
         return len(values), 0
@@ -132,8 +176,9 @@ class TelemetryService:
     async def ingest_mqtt_reading(self, car_id: uuid.UUID, organization_id: uuid.UUID, reading: dict) -> bool:
         source_message_id = reading.get("source_message_id")
         if not source_message_id:
-            logger.debug("MQTT reading missing source_message_id, skipping dedup path for car %s", car_id)
+            logger.debug("MQTT reading missing source_message_id, cannot deduplicate for car %s", car_id)
             return False
+
         stmt = pg_insert(OBDData).values(
             car_id=car_id,
             organization_id=organization_id,
@@ -194,7 +239,6 @@ class TelemetryService:
             )
         )
         total = await self.db.scalar(count_query) or 0
-
         query = (
             select(OBDData)
             .filter(

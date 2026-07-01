@@ -1,21 +1,35 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* Inter is loaded via next/font in layout.tsx (no render-blocking @import). */
 
 :root {
-  --primary-color: #1890ff;
-  --primary-hover: #1677cc;
-  --primary-light: rgba(24, 144, 255, 0.1);
-  --secondary-color: #52c41a;
-  --danger-color: #ff4d4f;
-  --warning-color: #faad14;
-  --background-color: #f5f6fa;
-  --card-background: #ffffff;
-  --text-primary: #1a1a2e;
-  --text-secondary: #64748b;
-  --border-color: #e8ecf1;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  /* Primary = one coherent blue, matching the Ant theme and dashboard accents */
+  --primary: #1890FF;
+  --primary-light: #40A9FF;
+  --primary-active: #0958D9;
+  /* Dark navy reserved for the sidebar / dark surfaces */
+  --primary-dark: #0F172A;
+  --sidebar-bg: #0F172A;
+  --accent: #2563EB;
+  --accent-light: #3B82F6;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --info: #3B82F6;
+  --background: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface-alt: #F1F5F9;
+  --border: #E2E8F0;
+  --border-color: #E2E8F0;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.14), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 }
 
 * {
@@ -37,35 +51,25 @@ body {
 }
 
 body {
-  background: var(--background-color);
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-a:hover {
-  color: var(--primary-color);
+  background: var(--background);
 }
 
 /* Ant Design Customizations */
 .ant-layout {
-  background: var(--background-color);
+  background: var(--background);
   min-height: 100vh;
 }
 
 .ant-layout-sider {
-  background: #0b1220 !important;
+  background: var(--primary-dark) !important;
 }
 
 .ant-menu-dark {
-  background: #0b1220 !important;
+  background: var(--primary-dark) !important;
 }
 
 .ant-menu-dark .ant-menu-item-selected {
-  background: var(--primary-color) !important;
+  background: var(--primary) !important;
   border-radius: 6px;
 }
 
@@ -78,16 +82,15 @@ a:hover {
   border-radius: 12px !important;
   box-shadow: var(--shadow-sm);
   transition: all 0.25s ease;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
 }
 
 .ant-card:hover {
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
 }
 
 .ant-card-head {
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border);
   min-height: 48px;
 }
 
@@ -96,25 +99,26 @@ a:hover {
 }
 
 .ant-btn-primary {
-  background: var(--primary-color);
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.045);
   font-weight: 500;
   height: 40px;
 }
 
 .ant-btn-primary:hover {
-  background: var(--primary-hover);
-  transform: translateY(-1px);
+  background: var(--primary-light) !important;
+  border-color: var(--primary-light) !important;
   box-shadow: var(--shadow-md);
 }
 
 .ant-input, .ant-input-password {
   border-radius: 8px;
-  border-color: var(--border-color);
+  border-color: var(--border);
 }
 
 .ant-input:focus, .ant-input-focused {
-  border-color: var(--primary-color);
+  border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.12);
 }
 
@@ -139,17 +143,17 @@ a:hover {
 }
 
 .ant-table-thead > tr > th {
-  background: #fafbfc;
+  background: var(--surface-alt);
   color: var(--text-secondary);
   font-weight: 600;
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border);
 }
 
 .ant-table-tbody > tr:hover > td {
-  background: var(--primary-light) !important;
+  background: rgba(30, 41, 59, 0.05) !important;
 }
 
 .ant-progress-bg {
@@ -166,14 +170,14 @@ a:hover {
 
 /* Custom Components */
 .dashboard-card {
-  background: var(--card-background);
+  background: var(--surface);
   border-radius: 12px;
   padding: 24px;
   box-shadow: var(--shadow-sm);
 }
 
 .stat-card {
-  background: var(--card-background);
+  background: var(--surface);
   border-radius: 12px;
   padding: 20px;
   box-shadow: var(--shadow-sm);
@@ -189,14 +193,13 @@ a:hover {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--primary-color), #69c0ff);
+  background: linear-gradient(90deg, var(--primary), var(--info));
   opacity: 0;
   transition: opacity 0.25s ease;
 }
 
 .stat-card:hover {
   box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
 }
 
 .stat-card:hover::before {
@@ -218,17 +221,17 @@ a:hover {
 }
 
 .status-online {
-  color: var(--secondary-color);
+  color: var(--success);
   font-weight: 600;
 }
 
 .status-offline {
-  color: var(--danger-color);
+  color: var(--danger);
   font-weight: 600;
 }
 
 .status-warning {
-  color: var(--warning-color);
+  color: var(--warning);
   font-weight: 600;
 }
 
@@ -299,16 +302,16 @@ a:hover {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--surface-alt);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: var(--text-muted);
 }
 
 /* Responsive */

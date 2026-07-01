@@ -1,6 +1,7 @@
-import React, { useCallback, memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, FlatList } from 'react-native';
+import React, { useState, useCallback, memo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, FlatList, TextInput, Modal } from 'react-native';
 import { useAuthStore, useOBDStore } from '../store';
+import api, { setCustomApiUrl, getApiUrl } from '../services/api';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 interface SettingItem {
@@ -45,6 +46,19 @@ const MemoSettingRow = memo(SettingRow);
 export default function SettingsScreen({ navigation }: { navigation: any }) {
   const { user, logout } = useAuthStore();
   const { isConnected, connectedDevice, setDisconnected } = useOBDStore();
+  const [showServerModal, setShowServerModal] = useState(false);
+  const [serverUrlInput, setServerUrlInput] = useState(getApiUrl());
+
+  const handleSaveServerUrl = useCallback(async () => {
+    try {
+      await setCustomApiUrl(serverUrlInput);
+      api.updateBaseUrl(serverUrlInput);
+      Alert.alert('Success', `Server URL updated to ${serverUrlInput}`);
+      setShowServerModal(false);
+    } catch {
+      Alert.alert('Error', 'Failed to save server URL');
+    }
+  }, [serverUrlInput]);
 
   const handleLogout = useCallback(() => {
     Alert.alert(
@@ -112,6 +126,20 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
       ],
     },
     {
+      title: 'Server',
+      items: [
+        {
+          icon: 'server',
+          label: 'Server URL',
+          value: getApiUrl(),
+          onPress: () => {
+            setServerUrlInput(getApiUrl());
+            setShowServerModal(true);
+          },
+        },
+      ],
+    },
+    {
       title: 'Account',
       items: [
         {
@@ -166,6 +194,45 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
       ))}
 
       <Text style={styles.version}>Fleet OBD Mobile v1.0.0</Text>
+
+      <Modal
+        visible={showServerModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowServerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Server URL</Text>
+            <Text style={styles.modalHint}>
+              Enter the public URL of your Fleet OBD server (including http:// or https://)
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={serverUrlInput}
+              onChangeText={setServerUrlInput}
+              placeholder="https://your-server.com"
+              autoCapitalize="none"
+              keyboardType="url"
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowServerModal(false)}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSave]}
+                onPress={handleSaveServerUrl}
+              >
+                <Text style={styles.modalButtonSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -255,5 +322,66 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 16,
     marginBottom: 32,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  modalHint: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: '#f5f6fa',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  modalButtonCancel: {
+    backgroundColor: '#f5f6fa',
+  },
+  modalButtonCancelText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonSave: {
+    backgroundColor: '#1890ff',
+  },
+  modalButtonSaveText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

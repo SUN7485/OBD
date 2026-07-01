@@ -1,84 +1,109 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuthStore } from '../store';
-import api from '../services/api';
+import api, { type User } from '../services/api';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { setAuth } = useAuthStore();
 
+  const validate = useCallback(() => {
+    if (!EMAIL_REGEX.test(email)) {
+      return 'Please enter a valid email address';
+    }
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    return null;
+  }, [email, password]);
+
   const handleLogin = useCallback(async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+    const validationError = validate();
+    if (validationError) {
+      Alert.alert('Validation Error', validationError);
       return;
     }
 
     setLoading(true);
+    setError(null);
     try {
       const response = await api.login(email, password);
-      setAuth(response.access_token, response.refresh_token, response.user);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Invalid credentials';
+      await setAuth(response.access_token, response.refresh_token, response.user);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Invalid credentials';
+      setError(message);
       Alert.alert('Login Failed', message);
     } finally {
       setLoading(false);
     }
-  }, [email, password, setAuth]);
+  }, [email, password, setAuth, validate]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.logoContainer}>
-        <View style={styles.logoMark}>
-          <Text style={styles.logoText}>F</Text>
-        </View>
-        <Text style={styles.title}>Fleet OBD</Text>
-        <Text style={styles.subtitle}>Sign in to your fleet</Text>
-      </View>
-
-      <View style={styles.form}>
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            placeholderTextColor="#94a3b8"
-          />
-        </View>
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholderTextColor="#94a3b8"
-          />
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.content}>
+        <View style={styles.logoContainer}>
+          <View style={styles.logoMark}>
+            <Text style={styles.logoText}>F</Text>
+          </View>
+          <Text style={styles.title}>Fleet OBD</Text>
+          <Text style={styles.subtitle}>Sign in to your fleet</Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Sign In</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+        <View style={styles.form}>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              placeholderTextColor="#94a3b8"
+              autoCorrect={false}
+            />
+          </View>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              placeholderTextColor="#94a3b8"
+              autoCorrect={false}
+            />
+          </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Need an account? Contact your fleet administrator
-        </Text>
+          {error && <Text style={styles.errorText}>{error}</Text>}
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Sign In</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Need an account? Contact your fleet administrator
+          </Text>
+        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -87,6 +112,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0b1220',
     padding: 24,
+    justifyContent: 'center',
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
   },
   logoContainer: {
@@ -156,5 +185,11 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 13,
     textAlign: 'center',
+  },
+  errorText: {
+    color: '#ff4d4f',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 12,
   },
 });

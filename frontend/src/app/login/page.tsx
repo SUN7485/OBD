@@ -17,10 +17,11 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const response = await authAPI.login(values.email, values.password)
-      const { access_token, user } = response.data
+      const { access_token, refresh_token, user } = response.data
       setAuth(access_token, user)
       localStorage.setItem('token', access_token)
-      message.success('Login successful!')
+      localStorage.setItem('refresh_token', refresh_token)
+      message.success('Welcome back!')
       router.push('/dashboard')
     } catch (error: any) {
       message.error(error.response?.data?.detail || 'Login failed')
@@ -44,7 +45,7 @@ export default function LoginPage() {
         values.organization_name,
         values.full_name || values.email.split('@')[0]
       )
-      message.success('Registration successful! Please login.')
+      message.success('Account created! Please sign in.')
       setActiveTab('login')
     } catch (error: any) {
       message.error(error.response?.data?.detail || 'Registration failed')
@@ -64,13 +65,13 @@ export default function LoginPage() {
             rules={[{ required: true, type: 'email' }]}
           >
             <Input 
-              prefix={<UserOutlined />} 
+              prefix={<UserOutlined style={{ color: 'var(--text-muted)' }} />} 
               placeholder="Email address" 
             />
           </Form.Item>
           <Form.Item name="password" rules={[{ required: true }]}>
             <Input.Password 
-              prefix={<LockOutlined />} 
+              prefix={<LockOutlined style={{ color: 'var(--text-muted)' }} />} 
               placeholder="Password" 
             />
           </Form.Item>
@@ -102,7 +103,7 @@ export default function LoginPage() {
             name="full_name" 
             rules={[{ required: true }]}
           >
-            <Input prefix={<UserOutlined />} placeholder="Full Name" />
+            <Input prefix={<UserOutlined style={{ color: 'var(--text-muted)' }} />} placeholder="Full Name" />
           </Form.Item>
           <Form.Item 
             name="email" 
@@ -111,7 +112,7 @@ export default function LoginPage() {
             <Input placeholder="Email" />
           </Form.Item>
           <Form.Item name="password" rules={[{ required: true, min: 6 }]}>
-            <Input.Password prefix={<LockOutlined />} placeholder="Password" />
+            <Input.Password prefix={<LockOutlined style={{ color: 'var(--text-muted)' }} />} placeholder="Password" />
           </Form.Item>
           <Form.Item name="role" initialValue="driver">
             <Radio.Group>
@@ -140,31 +141,79 @@ export default function LoginPage() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #001529 0%, #1890ff 100%)',
+      background: 'radial-gradient(1200px 600px at 50% -10%, #1E3A5F 0%, #0F172A 55%, #0B1220 100%)',
+      padding: 24,
+      position: 'relative',
+      overflow: 'hidden',
     }}>
-      <Card 
-        style={{ 
-          width: 420, 
-          boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-          borderRadius: 12
+      {/* subtle decorative glow */}
+      <div style={{
+        position: 'absolute',
+        top: '-15%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 520,
+        height: 520,
+        background: 'radial-gradient(circle, rgba(24,144,255,0.22) 0%, rgba(24,144,255,0) 70%)',
+        pointerEvents: 'none',
+      }} />
+
+      <Card
+        style={{
+          width: '100%',
+          maxWidth: 420,
+          boxShadow: 'var(--shadow-xl)',
+          borderRadius: 16,
+          border: 'none',
+          position: 'relative',
+          zIndex: 1,
         }}
+        styles={{ body: { padding: 32 } }}
       >
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <CarOutlined style={{ fontSize: 48, color: '#1890ff' }} />
-          <h1 style={{ fontSize: 24, fontWeight: 600, marginTop: 12 }}>
-            Fleet OBD Platform
+          <div style={{
+            width: 64,
+            height: 64,
+            margin: '0 auto',
+            borderRadius: 16,
+            background: 'linear-gradient(135deg, #1890ff, #0958d9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 20px -6px rgba(24,144,255,0.55)',
+          }}>
+            <CarOutlined style={{ fontSize: 30, color: '#fff' }} />
+          </div>
+          <h1 style={{ fontSize: 26, fontWeight: 800, marginTop: 16, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
+            Fleet OBD
           </h1>
-          <p style={{ color: '#8c8c8c' }}>
-            Manage your fleet with real-time diagnostics
+          <p style={{ color: 'var(--text-secondary)', marginTop: 4, fontSize: 14 }}>
+            Real-time vehicle diagnostics &amp; monitoring
           </p>
         </div>
 
-        <Tabs 
-          activeKey={activeTab} 
+        <Tabs
+          activeKey={activeTab}
           onChange={setActiveTab}
           centered
+          size="large"
           items={tabItems}
         />
+
+        {activeTab === 'login' && (
+          <div style={{
+            marginTop: 8,
+            padding: '10px 12px',
+            background: 'var(--surface-alt)',
+            borderRadius: 8,
+            border: '1px dashed var(--border)',
+            textAlign: 'center',
+            fontSize: 12.5,
+            color: 'var(--text-secondary)',
+          }}>
+            <span style={{ fontWeight: 600 }}>Demo</span> · admin@test.com / admin123
+          </div>
+        )}
       </Card>
     </div>
   )

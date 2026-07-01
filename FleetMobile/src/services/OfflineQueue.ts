@@ -8,14 +8,17 @@ const QUEUE_KEY = 'telemetry_offline_queue';
 const MAX_QUEUE_SIZE = 500;
 const DRAIN_BATCH_SIZE = 50;
 
-interface QueuedTelemetry {
+export interface QueuedTelemetry {
   car_id: string;
   speed: number;
   rpm: number;
-  coolant_temp: number;
-  engine_load: number;
+  coolantTemp: number;
+  engineLoad: number;
   throttle: number;
-  fuel_level: number;
+  fuelLevel: number;
+  intakeAirTemp: number;
+  mafAirFlow: number;
+  dtcCodes: string[];
   latitude?: number;
   longitude?: number;
   timestamp: string;

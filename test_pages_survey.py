@@ -12,6 +12,7 @@ PAGES = [
     "/dashboard/fleet",
     "/dashboard/drivers",
     "/dashboard/maintenance",
+    "/dashboard/messages",
 ]
 
 os.makedirs("D:/obd/test-output", exist_ok=True)

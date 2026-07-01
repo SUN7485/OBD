@@ -1,20 +1,20 @@
 /**
- * MQTT Publisher - WebSocket MQTT client for telemetry publishing
+ * MQTT Publisher - Sends telemetry data to the API via HTTP
+ * 
+ * NOTE: The `mqtt` npm package is incompatible with React Native because it
+ * depends on Node.js built-in modules (net, tls, stream, crypto, dns).
+ * Instead, we use the existing HTTP API client to publish telemetry.
  */
 
-import * as mqtt from 'mqtt';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { TelemetryData } from './OBDManager';
-
-const MQTT_URL = process.env.EXPO_PUBLIC_MQTT_URL || 'ws://localhost:8083/mqtt';
+import api from './api';
+import type { TelemetryData } from './OBDManager';
 
 class MQTTPublisher {
-  private client: mqtt.MqttClient | null = null;
   private connected: boolean = false;
   private carId: string = '';
   private offlineQueue: TelemetryData[] = [];
-  private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 5;
+  private publishTimer: ReturnType<typeof setInterval> | null = null;
 
   setCarId(id: string): void {
     this.carId = id;
@@ -46,68 +46,36 @@ class MQTTPublisher {
 
   async connect(): Promise<boolean> {
     await this.loadOfflineQueue();
-
-    this.client = mqtt.connect(MQTT_URL, {
-      clientId: `fleet_mobile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      keepalive: 60,
-      reconnectPeriod: 0,
-      protocolVersion: 4,
-    });
-
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve(this.connected), 5000);
-
-      this.client?.on('connect', () => {
-        console.log('MQTT connected');
-        this.connected = true;
-        this.reconnectAttempts = 0;
-        this.drainOfflineQueue();
-        clearTimeout(timeout);
-        resolve(true);
-      });
-
-      this.client?.on('error', (error: Error) => {
-        console.error('MQTT error:', error);
-        this.connected = false;
-        clearTimeout(timeout);
-        resolve(false);
-      });
-    });
-  }
-
-  private scheduleReconnect(): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('Max reconnect attempts reached');
-      return;
+    
+    // "Connected" means we have a carId and can publish via HTTP
+    if (this.carId) {
+      this.connected = true;
+      this.drainOfflineQueue();
+      return true;
     }
-
-    this.reconnectAttempts++;
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-
-    console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-
-    setTimeout(() => {
-      this.connect();
-    }, delay);
+    return false;
   }
 
   async publishTelemetry(data: TelemetryData): Promise<void> {
-    const topic = `telemetry/${this.carId}`;
-    const payload = JSON.stringify({
-      rpm: data.rpm,
-      speed: data.speed,
-      coolant_temp: data.coolantTemp,
-      engine_load: data.engineLoad,
-      fuel_level: data.fuelLevel,
-      throttle_position: data.throttle,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      dtc_codes: data.dtcCodes,
-      timestamp: data.timestamp,
-    });
-
-    if (this.connected && this.client) {
-      this.client.publish(topic, payload, { qos: 1 });
+    if (this.connected && this.carId) {
+      try {
+        await api.ingestTelemetry({
+          car_id: this.carId,
+          speed: data.speed,
+          rpm: data.rpm,
+          coolant_temp: data.coolantTemp,
+          engine_load: data.engineLoad,
+          throttle: data.throttle,
+          fuel_level: data.fuelLevel,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          timestamp: data.timestamp,
+        });
+      } catch (e) {
+        console.log('Failed to publish telemetry, queuing offline');
+        this.offlineQueue.push(data);
+        await this.saveOfflineQueue();
+      }
     } else {
       this.offlineQueue.push(data);
       await this.saveOfflineQueue();
@@ -116,37 +84,40 @@ class MQTTPublisher {
   }
 
   private async drainOfflineQueue(): Promise<void> {
-    if (!this.connected || !this.client || this.offlineQueue.length === 0) return;
+    if (!this.connected || this.offlineQueue.length === 0) return;
 
     console.log(`Draining ${this.offlineQueue.length} offline telemetry records`);
-
-    for (const data of this.offlineQueue) {
-      const topic = `telemetry/${this.carId}`;
-      const payload = JSON.stringify({
-        rpm: data.rpm,
-        speed: data.speed,
-        coolant_temp: data.coolantTemp,
-        engine_load: data.engineLoad,
-        fuel_level: data.fuelLevel,
-        throttle_position: data.throttle,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        dtc_codes: data.dtcCodes,
-        timestamp: data.timestamp,
-      });
-
-      this.client.publish(topic, payload, { qos: 1 });
-    }
-
+    const batch = [...this.offlineQueue];
     this.offlineQueue = [];
+    await this.saveOfflineQueue();
+
+    for (const data of batch) {
+      try {
+        await api.ingestTelemetry({
+          car_id: this.carId,
+          speed: data.speed,
+          rpm: data.rpm,
+          coolant_temp: data.coolantTemp,
+          engine_load: data.engineLoad,
+          throttle: data.throttle,
+          fuel_level: data.fuelLevel,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          timestamp: data.timestamp,
+        });
+      } catch {
+        // Re-queue if still failing
+        this.offlineQueue.push(data);
+      }
+    }
     await this.saveOfflineQueue();
   }
 
   async disconnect(): Promise<void> {
-    if (this.client && this.connected) {
-      this.client.end();
+    if (this.publishTimer) {
+      clearInterval(this.publishTimer);
+      this.publishTimer = null;
     }
-    this.client = null;
     this.connected = false;
   }
 

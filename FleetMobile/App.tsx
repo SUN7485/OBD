@@ -7,10 +7,11 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuthStore } from './src/store';
-import api from './src/services/api';
+import api, { initializeApiUrl } from './src/services/api';
 import MQTTPublisher from './src/services/MQTTPublisher';
 import AlertWebSocket from './src/services/AlertWebSocket';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import TelemetryStreamer from './src/services/TelemetryStreamer';
 
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -63,27 +64,42 @@ function AppInner() {
 
   useEffect(() => {
     const initialize = async () => {
-      const hasAuth = await checkAuth();
-      if (hasAuth && user) {
-        const token = await api.getToken();
-        const host = api.getHost();
-        if (token && host && !host.includes('undefined')) {
-          AlertWebSocket.setToken(token);
-          AlertWebSocket.connect(host);
+      try {
+        await initializeApiUrl();
+
+        const hasAuth = await checkAuth();
+        if (hasAuth && user) {
+          const token = await api.getToken();
+          const host = api.getHost();
+          if (token && host && !host.includes('undefined')) {
+            AlertWebSocket.setToken(token);
+            AlertWebSocket.connect(host);
+          }
         }
+      } catch (e) {
+        console.error('AppInner init failed:', e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     initialize();
 
     const handleAppStateChange = (state: string) => {
       if (state === 'active') {
-        MQTTPublisher.connect();
+        MQTTPublisher.connect().catch((e) => console.error('MQTTPublisher.connect failed:', e));
+        TelemetryStreamer.start().catch((e) => console.error('TelemetryStreamer.start failed:', e));
+      } else {
+        TelemetryStreamer.stop();
       }
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      TelemetryStreamer.destroy();
+      MQTTPublisher.disconnect();
+      AlertWebSocket.disconnect();
+    };
   }, []);
 
   if (loading) {

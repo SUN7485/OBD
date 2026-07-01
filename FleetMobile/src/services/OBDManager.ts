@@ -19,6 +19,8 @@ export interface TelemetryData {
   intakeAirTemp: number;
   mafAirFlow: number;
   dtcCodes: string[];
+  latitude?: number;
+  longitude?: number;
   timestamp: string;
 }
 
@@ -35,7 +37,7 @@ class OBDManager {
     this.manager = new BleManager();
   }
 
-  startScan(callback: (device: Device) => void, onError?: (error: string) => void): Subscription {
+  startScan(callback: (device: Device) => void, onError?: (error: string) => void): Promise<void> {
     return this.manager.startDeviceScan(
       null,
       { allowDuplicates: false },
@@ -68,35 +70,48 @@ class OBDManager {
       await connectedDevice.discoverAllServicesAndCharacteristics();
       const services = await connectedDevice.services();
 
-      let found = false;
+      let writeCharId: string | null = null;
+      let readCharId: string | null = null;
+      let foundOBDChar = false;
+
       for (const svc of services) {
         const characteristics = await connectedDevice.characteristicsForService(svc.uuid);
         for (const char of characteristics) {
-          if (char.isWritableWithResponse || char.isWritableWithoutResponse) {
-            this.writeCharId = char.uuid;
+          const isOBDChar = char.uuid.toLowerCase() === OBD_SERVICE_UUID.toLowerCase();
+          if (isOBDChar) foundOBDChar = true;
+          if ((char.isWritableWithResponse || char.isWritableWithoutResponse) && !writeCharId) {
+            writeCharId = char.uuid;
           }
-          if (char.isReadable || char.isNotifying) {
-            this.readCharId = char.uuid;
-          }
-          if (char.uuid.toLowerCase().includes('fff1') || char.uuid.toLowerCase().includes('fff2')) {
-            found = true;
+          if ((char.isReadable || char.isNotifying) && !readCharId) {
+            readCharId = char.uuid;
           }
         }
       }
 
-      if (!found && !this.writeCharId) {
+      if (!foundOBDChar && !writeCharId) {
         for (const svc of services) {
           const chars = await connectedDevice.characteristicsForService(svc.uuid);
           for (const char of chars) {
             if (char.isWritableWithResponse || char.isWritableWithoutResponse) {
-              this.writeCharId = char.uuid;
+              writeCharId = char.uuid;
             }
             if (char.isReadable || char.isNotifying) {
-              this.readCharId = char.uuid;
+              readCharId = char.uuid;
             }
           }
         }
       }
+
+      this.writeCharId = writeCharId;
+      this.readCharId = readCharId;
+
+      if (!this.writeCharId || !this.readCharId) {
+        console.error('OBD connect: no writable or readable characteristic found on device');
+        this.connected = false;
+        return false;
+      }
+
+      console.log(`OBD connect: using writeChar=${this.writeCharId}, readChar=${this.readCharId}`);
 
       this.device = connectedDevice;
       this.connected = true;
@@ -107,7 +122,10 @@ class OBDManager {
           OBD_SERVICE_UUID,
           this.readCharId,
           (error, characteristic) => {
-            if (error) return;
+            if (error) {
+              console.error('Monitor characteristic error:', error);
+              return;
+            }
             if (characteristic?.value) {
               const decoded = this.base64Decode(characteristic.value);
               this.responseBuffer += decoded;
@@ -224,7 +242,7 @@ class OBDManager {
   async readTelemetry(): Promise<TelemetryData> {
     const ts = new Date().toISOString();
 
-    const [speed, rpm, coolantTemp, engineLoad, throttle, fuelLevel, intakeAirTemp] = await Promise.all([
+    const [speed, rpm, coolantTemp, engineLoad, throttle, fuelLevel, intakeAirTemp, mafAirFlow] = await Promise.all([
       this.readPID(OBD_PIDS.VEHICLE_SPEED),
       this.readPID(OBD_PIDS.ENGINE_RPM),
       this.readPID(OBD_PIDS.COOLANT_TEMP),
@@ -232,6 +250,7 @@ class OBDManager {
       this.readPID(OBD_PIDS.THROTTLE_POSITION),
       this.readPID(OBD_PIDS.FUEL_GAUGE_LEVEL),
       this.readPID(OBD_PIDS.INTAKE_AIR_TEMP),
+      this.readPID(OBD_PIDS.MAF_AIR_FLOW),
     ]);
 
     return {
@@ -242,7 +261,7 @@ class OBDManager {
       throttle: throttle ?? 0,
       fuelLevel: fuelLevel ?? 0,
       intakeAirTemp: intakeAirTemp ?? 0,
-      mafAirFlow: 0,
+      mafAirFlow: mafAirFlow ?? 0,
       dtcCodes: [],
       timestamp: ts,
     };

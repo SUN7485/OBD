@@ -3,8 +3,6 @@
  */
 
 import * as Location from 'expo-location';
-import * as TaskManager from 'expo-task-manager';
-import * as BackgroundFetch from 'expo-background-fetch';
 import { Platform } from 'react-native';
 
 const LOCATION_TASK = 'background-location-task';
@@ -14,7 +12,6 @@ interface LocationData {
   latitude: number;
   longitude: number;
   altitude?: number;
-  accuracy?: number;
   speed?: number;
   heading?: number;
   timestamp: number;
@@ -26,19 +23,31 @@ class FleetLocationService {
   private watchId: Location.LocationSubscription | null = null;
   private backgroundCallback: LocationCallback | null = null;
   private isTracking: boolean = false;
+  private cachedForegroundStatus: Location.PermissionStatus | null = null;
+  private cachedBackgroundStatus: Location.PermissionStatus | null = null;
+
+  private async ensureForegroundPermission(): Promise<boolean> {
+    if (this.cachedForegroundStatus === 'granted') return true;
+
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    this.cachedForegroundStatus = status;
+    return status === 'granted';
+  }
+
+  private async ensureBackgroundPermission(): Promise<boolean> {
+    if (Platform.OS !== 'android') return true;
+
+    if (this.cachedBackgroundStatus === 'granted') return true;
+
+    const result = await Location.requestBackgroundPermissionsAsync();
+    this.cachedBackgroundStatus = result.status;
+    return result.status === 'granted';
+  }
 
   async requestPermissions(): Promise<boolean> {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      return false;
-    }
-
-    if (Platform.OS === 'android') {
-      const backgroundStatus = await Location.requestBackgroundPermissionsAsync();
-      return backgroundStatus.status === 'granted';
-    }
-
-    return true;
+    const hasForeground = await this.ensureForegroundPermission();
+    if (!hasForeground) return false;
+    return await this.ensureBackgroundPermission();
   }
 
   async getCurrentLocation(): Promise<LocationData | null> {
@@ -48,14 +57,12 @@ class FleetLocationService {
     try {
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
-        maximumAge: 10000,
       });
 
       return {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         altitude: location.coords.altitude ?? undefined,
-        accuracy: location.coords.accuracy ?? undefined,
         speed: location.coords.speed ?? undefined,
         heading: location.coords.heading ?? undefined,
         timestamp: location.timestamp,
@@ -87,7 +94,6 @@ class FleetLocationService {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           altitude: location.coords.altitude ?? undefined,
-          accuracy: location.coords.accuracy ?? undefined,
           speed: location.coords.speed ?? undefined,
           heading: location.coords.heading ?? undefined,
           timestamp: location.timestamp,

@@ -1,32 +1,76 @@
-"""Row-Level Security (RLS) middleware."""
+"""Row-Level Security (RLS) middleware using PostgreSQL session variables."""
 import logging
 from typing import Optional
+from contextvars import ContextVar
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+from db.session import engine
 
 logger = logging.getLogger(__name__)
 
-# Session variable name for RLS
-RLS_SESSION_VAR = "app.current_org_id"
+# Context variable for storing current org_id in async context
+_current_org_id: ContextVar[Optional[str]] = ContextVar("current_org_id", default=None)
+
+
+def get_current_org_id() -> Optional[str]:
+    """Get the current organization ID from context."""
+    return _current_org_id.get()
+
+
+def set_current_org_id(org_id: Optional[str]) -> None:
+    """Set the current organization ID in context."""
+    _current_org_id.set(org_id)
+
+
+# SQLAlchemy event listener to set RLS session variable on new connections
+async def _set_rls_on_connection(db_connection, connection_record):
+    """Event listener: set RLS session variable when a new DB connection is created."""
+    org_id = _current_org_id.get()
+    if org_id:
+        try:
+            await db_connection.execute(text("SET app.current_org_id = :org_id"), {"org_id": str(org_id)})
+            logger.debug(f"Set RLS session variable to org_id={org_id}")
+        except Exception as e:
+            logger.warning(f"Failed to set RLS session variable: {e}")
+
+
+def _set_rls_on_connection_sync(db_connection, connection_record):
+    """Sync wrapper for event listener (SQLAlchemy may call sync version)."""
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_set_rls_on_connection(db_connection, connection_record))
+    except RuntimeError:
+        # No event loop running (e.g., during tests)
+        pass
+
+
+# Register event listener on the engine
+from sqlalchemy import event
+event.listen(engine.sync_engine, "connect", _set_rls_on_connection_sync)
 
 
 class RLSMiddleware(BaseHTTPMiddleware):
     """
     Middleware to set PostgreSQL session variables for Row-Level Security.
     
-    Extracts organization_id from JWT token and sets it in the PostgreSQL
-    session so that RLS policies can filter by organization.
+    Extracts organization_id from JWT token and stores it in context
+    so that SQLAlchemy event listeners can set the RLS session variable
+    on each new database connection.
     """
     
     async def dispatch(self, request: Request, call_next):
-        # Get organization_id from request state (set by auth middleware)
         org_id = None
         
+        # Check for organization_id in request state (set by auth middleware/dependency)
         if hasattr(request.state, "organization_id") and request.state.organization_id:
             org_id = str(request.state.organization_id)
         
-        # Also check for organization_id in query or headers for special cases
+        # Also check for organization_id in headers for special cases
         if not org_id:
             org_id = request.headers.get("X-Organization-ID")
         
@@ -42,11 +86,15 @@ class RLSMiddleware(BaseHTTPMiddleware):
                 except Exception:
                     pass
         
-        # Store in request state for later use
+        # Store in request state and context var for downstream use
         request.state.current_org_id = org_id
+        set_current_org_id(org_id)
         
         # Process request
         response = await call_next(request)
+        
+        # Clear context after request
+        set_current_org_id(None)
         
         return response
 
@@ -55,14 +103,31 @@ async def set_rls_session(org_id: str) -> None:
     """
     Set the RLS session variable in PostgreSQL.
     
-    This should be called when creating a database connection.
+    This is called when creating a database connection to ensure
+    all queries within that session are automatically filtered by
+    the organization_id through PostgreSQL RLS policies.
+    
+    Note: This requires that RLS is enabled on the relevant tables
+    and that appropriate policies exist. Since TimescaleDB hypertables
+    cannot use RLS with compression, application-level filtering is
+    used as a fallback for obd_data.
     
     Args:
         org_id: The organization ID to set
     """
-    # This is handled by the middleware which stores org_id in request state
-    # The actual SQL session variable setting happens in the database connection
-    pass
+    try:
+        from db.session import AsyncSessionLocal
+        from sqlalchemy import text
+        
+        async with AsyncSessionLocal() as session:
+            await session.execute(
+                text("SET app.current_org_id = :org_id"),
+                {"org_id": str(org_id)}
+            )
+            await session.commit()
+            logger.debug(f"RLS session variable set to org_id={org_id}")
+    except Exception as e:
+        logger.warning(f"Failed to set RLS session variable: {e}")
 
 
 def get_org_id_from_request(request: Request) -> Optional[str]:
@@ -78,4 +143,4 @@ def get_org_id_from_request(request: Request) -> Optional[str]:
     if hasattr(request.state, "current_org_id"):
         return request.state.current_org_id
     
-    return None
+    return get_current_org_id()

@@ -88,12 +88,14 @@ class TelemetryIngestRequest(BaseModel):
 
 
 class TelemetryIngestResponse(BaseModel):
-    """Response after successful telemetry ingestion."""
-
     success: bool = True
     message: str = "Telemetry data ingested successfully"
     time: datetime
     car_id: uuid.UUID
+
+
+class TelemetryBatchIngestRequest(BaseModel):
+    items: List[TelemetryIngestRequest] = Field(..., max_length=50)
 
 
 class TelemetryHistoryRequest(BaseModel):

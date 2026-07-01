@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Platform, PermissionsAndroid, AppState } from 'react-native';
 import { Device, Subscription } from 'react-native-ble-plx';
 import { useOBDStore } from '../store';
@@ -13,23 +13,25 @@ export default function BLEConnectScreen() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [scanning, setScanning] = useState(false);
   const manager = OBDManager.getManager();
-  const [scanSubscription, setScanSubscription] = useState<Subscription | null>(null);
-  const [appState, setAppState] = useState(AppState.currentState);
+  const scanSubscriptionRef = useRef<Subscription | null>(null);
+  const scanSuccessFlagRef = useRef(false);
+  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const appStateListenerRef = useRef<{ remove: () => void } | null>(null);
+  const [scanFingerprint, setScanFingerprint] = useState(0);
+  const appState = AppState.currentState;
   const { setConnected, setDisconnected, isConnected } = useOBDStore();
 
   const requestPermissions = useCallback(async () => {
     if (Platform.OS === 'android') {
       try {
         const granted = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         ]);
         const allGranted = Object.values(granted).every(
           status => status === PermissionsAndroid.RESULTS.GRANTED
         );
         if (!allGranted) {
-          Alert.alert('Permissions Required', 'Please grant Bluetooth and location permissions');
+          Alert.alert('Permissions Required', 'Please grant location permission for Bluetooth scanning');
         }
         return allGranted;
       } catch (err) {
@@ -43,59 +45,91 @@ export default function BLEConnectScreen() {
   useEffect(() => {
     requestPermissions();
 
-    const handleAppStateChange = (nextState: string) => {
-      setAppState(nextState);
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    appStateListenerRef.current = AppState.addEventListener('change', () => {});
 
     return () => {
-      subscription.remove();
-      scanSubscription?.remove();
+      if (appStateListenerRef.current) {
+        appStateListenerRef.current.remove();
+      }
+      if (scanSubscriptionRef.current) {
+        scanSubscriptionRef.current.remove();
+        scanSubscriptionRef.current = null;
+      }
       manager.stopDeviceScan();
+      if (scanTimerRef.current) {
+        clearTimeout(scanTimerRef.current);
+        scanTimerRef.current = null;
+      }
     };
-  }, [appState, manager, scanSubscription]);
+  }, [manager, requestPermissions]);
 
-  const startScan = useCallback(() => {
+  const startScan = useCallback(async () => {
     setDevices([]);
     setScanning(true);
+    scanSuccessFlagRef.current = false;
 
-    const subscription = manager.startDeviceScan(
-      null,
-      { allowDuplicates: false },
-      (error, device) => {
-        if (error) {
-          console.error('Scan error:', error);
-          Alert.alert('Error', 'Failed to scan for devices');
-          setScanning(false);
-          return;
-        }
+    manager.stopDeviceScan();
+    if (scanSubscriptionRef.current) {
+      try { await scanSubscriptionRef.current.remove(); } catch { /* noop */ }
+      scanSubscriptionRef.current = null;
+    }
 
-        if (device && device.name) {
-          const name = device.name.toUpperCase();
-          if (name.includes('OBD') || name.includes('ELM') || name.includes('VEELINK') || name.includes('OBDLINK')) {
-            setDevices(prev => {
-              if (prev.find(d => d.id === device.id)) return prev;
-              return [...prev, device];
-            });
+    if (scanTimerRef.current) {
+      clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = null;
+    }
+
+    try {
+      await manager.startDeviceScan(
+        null,
+        { allowDuplicates: false },
+        (error, device) => {
+          if (error) {
+            console.error('Scan error:', error);
+            Alert.alert('Error', 'Failed to scan for devices');
+            setScanning(false);
+            scanSuccessFlagRef.current = false;
+            return;
+          }
+
+          if (device && device.name) {
+            const name = device.name.toUpperCase();
+            if (name.includes('OBD') || name.includes('ELM') || name.includes('VEELINK') || name.includes('OBDLINK')) {
+              scanSuccessFlagRef.current = true;
+              setDevices(prev => {
+                if (prev.find(d => d.id === device.id)) return prev;
+                return [...prev, device];
+              });
+            }
           }
         }
+      );
+    } catch (err) {
+      setScanning(false);
+      return;
+    }
+
+    scanTimerRef.current = setTimeout(() => {
+      if (scanSubscriptionRef.current) {
+        scanSubscriptionRef.current.remove();
+        scanSubscriptionRef.current = null;
       }
-    );
-
-    setScanSubscription(subscription);
-
-    setTimeout(() => {
-      subscription?.remove();
       manager.stopDeviceScan();
       setScanning(false);
+      scanSuccessFlagRef.current = false;
+      scanTimerRef.current = null;
     }, 10000);
+
+    setScanFingerprint(f => f + 1);
   }, [manager]);
 
   const connectToDevice = useCallback(async (device: Device) => {
     try {
       setScanning(false);
-      scanSubscription?.remove();
+      if (scanSubscriptionRef.current) {
+        scanSubscriptionRef.current.remove();
+        scanSubscriptionRef.current = null;
+      }
       manager.stopDeviceScan();
 
       Alert.alert('Connecting', `Connecting to ${device.name}...`);
@@ -135,21 +169,17 @@ export default function BLEConnectScreen() {
       console.error('Connection error:', error);
       Alert.alert('Error', 'Failed to connect to device');
     }
-  }, [manager, scanSubscription, setConnected]);
+  }, [manager, setConnected]);
 
   const disconnect = useCallback(async () => {
     try {
-      const connectedDevices = await manager.connectedDevices();
-      for (const device of connectedDevices) {
-        await manager.cancelDeviceConnection(device.id);
-      }
       setDisconnected();
       Alert.alert('Disconnected', 'OBD device disconnected');
       await SecureStore.deleteItemAsync(CAR_ID_KEY);
     } catch (error) {
       console.error('Disconnect error:', error);
     }
-  }, [manager, setDisconnected]);
+  }, [setDisconnected]);
 
   const renderDevice = useCallback(({ item }: { item: Device }) => (
     <TouchableOpacity

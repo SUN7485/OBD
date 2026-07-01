@@ -74,15 +74,6 @@ export default function AlertsScreen() {
 
   const keyExtractor = useCallback((item: AlertItem) => item.id, []);
 
-  const getItemLayout = useCallback(
-    (_data: AlertItem[] | null, index: number) => ({
-      length: 120,
-      offset: 120 * index,
-      index,
-    }),
-    []
-  );
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -100,7 +91,6 @@ export default function AlertsScreen() {
           renderItem={renderAlert}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.list}
-          getItemLayout={getItemLayout}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }

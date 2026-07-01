@@ -44,6 +44,7 @@ for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
 
 @rem Find java.exe
+set "GRADLE_JAVA_HOME_SKIP_CHECK=1"
 if defined JAVA_HOME goto findJavaFromJavaHome
 
 set JAVA_EXE=java.exe
@@ -64,13 +65,24 @@ set JAVA_EXE=%JAVA_HOME%/bin/java.exe
 
 if exist "%JAVA_EXE%" goto execute
 
+rem Skip invalid JAVA_HOME and use Android Studio JBR
+echo. 1>&2
+echo WARNING: JAVA_HOME is set to an invalid directory, trying Android Studio JBR 1>&2
+set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
+set "JAVA_EXE=%JAVA_HOME%/bin/java.exe"
+if exist "%JAVA_EXE%" goto execute
+
+echo. 1>&2
+echo WARNING: JAVA_HOME is set to an invalid directory, trying Android Studio JBR 1>&2
+set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+set JAVA_EXE=%JAVA_HOME%/bin/java.exe
+if exist "%JAVA_EXE%" goto execute
+
 echo. 1>&2
 echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME% 1>&2
 echo. 1>&2
 echo Please set the JAVA_HOME variable in your environment to match the 1>&2
-echo location of your Java installation. 1>&2
-
-goto fail
+echo location of your Java installation.
 
 :execute
 @rem Setup the command line

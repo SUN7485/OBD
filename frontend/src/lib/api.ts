@@ -20,14 +20,28 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle auth errors
+// Handle auth errors and token refresh
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('token')
-        window.location.href = '/login'
+        const refreshToken = localStorage.getItem('refresh_token')
+        if (refreshToken) {
+          try {
+            const refreshResponse = await api.post('/auth/refresh', { refresh_token: refreshToken })
+            const { access_token } = refreshResponse.data
+            localStorage.setItem('token', access_token)
+            error.config.headers.Authorization = `Bearer ${access_token}`
+            return api(error.config)
+          } catch (refreshError) {
+            localStorage.removeItem('token')
+            localStorage.removeItem('refresh_token')
+            window.location.href = '/login'
+          }
+        } else {
+          window.location.href = '/login'
+        }
       }
     }
     return Promise.reject(error)
@@ -58,7 +72,7 @@ export const telemetryAPI = {
     api.post('/telemetry/ingest', { car_id, ...data }),
   history: (car_id: string, start: string, end: string, metrics?: string[]) =>
     api.get('/telemetry/history', { params: { car_id, start, end, metrics } }),
-  live: (car_id: string) => api.get(`/telemetry/live/${car_id}`),
+  live: (car_id: string) => api.get(`/telemetry/latest/${car_id}`),
 }
 
 // Analytics API
@@ -98,7 +112,7 @@ export const fleetAPI = {
   checkGeofence: (car_id: string) => api.post('/fleet/geofences/check', { car_id }),
 
   // Driver Scores
-  driverLeaderboard: (limit?: number) => api.get('/fleet/drivers/leaderboard', { params: { limit } }),
+  driverLeaderboard: (limit?: number) => api.get('/fleet/drivers/leaderboard', { params: { limit, days: 7 } }),
   driverScore: (car_id: string) => api.get(`/fleet/drivers/${car_id}/score`),
 
   // Maintenance

@@ -38,7 +38,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
       set({ token, refreshToken, user, isAuthenticated: true });
     } catch (error) {
       console.error('Failed to store auth:', error);
-      set({ token, refreshToken, user, isAuthenticated: true });
+      throw new Error('Secure storage unavailable. Please try again.');
     }
   },
 
@@ -69,9 +69,9 @@ export const useAuthStore = create<AuthState>()((set) => ({
 interface TelemetryData {
   speed: number;
   rpm: number;
-  coolant_temp: number;
-  engine_load: number;
-  fuel_level: number;
+  coolantTemp: number;
+  engineLoad: number;
+  fuelLevel: number;
   throttle: number;
   latitude?: number;
   longitude?: number;
